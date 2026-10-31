@@ -1,3 +1,23 @@
+# Sobe tudo: Postgres + migrations + API.
+#   docker compose up --build
+# API em http://localhost:3333  (teste: curl localhost:3333/health)
+#
+# Configuração opcional em um arquivo .env ao lado deste (veja .env.example):
+# JWT_ACCESS_SECRET, GOOGLE_CLIENT_IDS, FACEBOOK_APP_ID, FACEBOOK_APP_SECRET...
+
+x-api-env: &api-env
+  NODE_ENV: ${NODE_ENV:-development}
+  DATABASE_URL: postgres://${POSTGRES_USER:-aurora}:${POSTGRES_PASSWORD:-aurora}@postgres:5432/${POSTGRES_DB:-aurora}
+  # Segredo SÓ para desenvolvimento local. Em produção (NODE_ENV=production) a API recusa iniciar com ele.
+  JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-only-insecure-secret-change-me-0123456789}
+  JWT_ACCESS_TTL_SECONDS: ${JWT_ACCESS_TTL_SECONDS:-900}
+  REFRESH_TOKEN_TTL_DAYS: ${REFRESH_TOKEN_TTL_DAYS:-30}
+  GOOGLE_CLIENT_IDS: ${GOOGLE_CLIENT_IDS:-}
+  FACEBOOK_APP_ID: ${FACEBOOK_APP_ID:-}
+  FACEBOOK_APP_SECRET: ${FACEBOOK_APP_SECRET:-}
+  CORS_ORIGINS: ${CORS_ORIGINS:-}
+  TRUST_PROXY: ${TRUST_PROXY:-false}
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -8,7 +28,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aurora}
       POSTGRES_DB: ${POSTGRES_DB:-aurora}
     ports:
-      # Exposto apenas em localhost para não abrir o banco na rede
+      # Exposto apenas em localhost (para usar psql/DBeaver); a API acessa pela rede interna
       - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -17,6 +37,31 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  # Executa as migrations do Drizzle uma vez e termina
+  migrate:
+    build: .
+    image: aurora-api
+    container_name: aurora-migrate
+    command: ["node", "dist/infra/database/migrate.js"]
+    environment: *api-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build: .
+    image: aurora-api
+    container_name: aurora-api
+    restart: unless-stopped
+    environment: *api-env
+    ports:
+      # 0.0.0.0 para o celular na mesma rede Wi-Fi acessar (http://IP-DO-PC:3333)
+      - "3333:3333"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
 
 volumes:
   pgdata:

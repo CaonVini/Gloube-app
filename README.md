@@ -2,7 +2,20 @@
 
 Backend para app mobile: Node.js 22 + TypeScript, Fastify, PostgreSQL, Drizzle ORM, JWT + refresh token rotativo.
 
-## Como rodar
+## Rodar tudo com Docker (recomendado)
+```bash
+docker compose up --build        # Postgres + migrations + API
+curl localhost:3333/health       # {"status":"ok"}
+```
+Sobe 3 serviços: `postgres`, `migrate` (aplica as migrations e termina) e `api` (porta 3333). Nada precisa ser
+configurado para testar localmente; para login social e segredo próprio, crie um `.env` ao lado do compose
+(veja `.env.example`: `JWT_ACCESS_SECRET`, `GOOGLE_CLIENT_IDS`, `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`).
+- O padrão do compose usa um segredo JWT **só de desenvolvimento**; com `NODE_ENV=production` a API recusa iniciar com ele.
+- A porta 3333 fica aberta na rede para o celular (mesmo Wi-Fi) acessar `http://IP-DO-PC:3333`; o Postgres só em `127.0.0.1`.
+- Dados persistem no volume `pgdata`. Para zerar: `docker compose down -v`.
+- Para o app em emulador Android, use `http://10.0.2.2:3333`.
+
+## Como rodar sem Docker (desenvolvimento)
 ```bash
 cp .env.example .env          # ajuste JWT_ACCESS_SECRET (>= 32 chars)
 docker compose up -d          # Postgres 16 em 127.0.0.1:5432

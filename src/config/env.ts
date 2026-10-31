@@ -51,12 +51,18 @@ const envSchema = z.object({
 
 export type Env = z.infer<typeof envSchema>;
 
+/** Segredos de exemplo/desenvolvimento nunca podem ir para produção. */
+const PLACEHOLDER_SECRET = /^(dev-only|troque-por)/;
+
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   const parsed = envSchema.safeParse(source);
   if (!parsed.success) {
     // Nunca imprime valores, apenas quais chaves falharam (evita vazar segredos em log)
     const issues = parsed.error.issues.map((i) => `  - ${i.path.join('.')}: ${i.message}`).join('\n');
     throw new Error(`Variáveis de ambiente inválidas:\n${issues}`);
+  }
+  if (parsed.data.NODE_ENV === 'production' && PLACEHOLDER_SECRET.test(parsed.data.JWT_ACCESS_SECRET)) {
+    throw new Error('Variáveis de ambiente inválidas:\n  - JWT_ACCESS_SECRET: segredo de exemplo não pode ser usado em produção');
   }
   return parsed.data;
 }
