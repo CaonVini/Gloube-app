@@ -1,5 +1,6 @@
 import { ConflictError } from '../../../../shared/errors/app-error.js';
 import { User } from '../../domain/user.entity.js';
+import type { Address } from '../../domain/address.js';
 import type { UserRepository } from '../../domain/user.repository.js';
 import type { PasswordHasher } from '../ports/password-hasher.js';
 import { toUserDTO, type AuthResultDTO } from '../dtos.js';
@@ -9,6 +10,8 @@ export interface RegisterUserInput {
   name: string;
   email: string;
   password: string;
+  phone?: string;
+  address?: Address;
 }
 
 export class RegisterUserUseCase {
@@ -28,7 +31,13 @@ export class RegisterUserUseCase {
     }
 
     const passwordHash = await this.hasher.hash(input.password);
-    const user = User.create({ name: input.name, email, passwordHash });
+    const user = User.create({
+      name: input.name,
+      email,
+      passwordHash,
+      phone: input.phone,
+      address: input.address,
+    });
     await this.users.create(user);
 
     const tokens = await this.issueSession.execute(user.id);

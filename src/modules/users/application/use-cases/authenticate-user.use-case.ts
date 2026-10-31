@@ -22,7 +22,9 @@ export class AuthenticateUserUseCase {
   async execute(input: AuthenticateUserInput): Promise<AuthResultDTO> {
     const user = await this.users.findByEmail(User.normalizeEmail(input.email));
 
-    if (!user) {
+    // Conta só-social (sem senha) é tratada como inexistente para login por senha,
+    // com a mesma mensagem e o mesmo custo de tempo.
+    if (!user || !user.passwordHash) {
       // Executa um verify "falso" para que o tempo de resposta seja parecido com o
       // de um usuário existente — dificulta enumeração de e-mails por timing.
       await this.hasher.verify(await this.getDummyHash(), input.password);

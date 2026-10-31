@@ -5,11 +5,11 @@ import rateLimit from '@fastify/rate-limit';
 import { sql } from 'drizzle-orm';
 import type { Env } from './config/env.js';
 import type { Database } from './infra/database/client.js';
-import { buildContainer } from './shared/container.js';
+import { buildContainer, type ContainerOverrides } from './shared/container.js';
 import { errorHandler } from './shared/http/error-handler.js';
 import { userRoutes } from './modules/users/http/user.routes.js';
 
-export async function buildApp(env: Env, db: Database): Promise<FastifyInstance> {
+export async function buildApp(env: Env, db: Database, overrides: ContainerOverrides = {}): Promise<FastifyInstance> {
   const app = Fastify({
     logger: {
       level: env.NODE_ENV === 'test' ? 'silent' : env.LOG_LEVEL,
@@ -48,8 +48,8 @@ export async function buildApp(env: Env, db: Database): Promise<FastifyInstance>
     }
   });
 
-  const container = buildContainer(env, db);
-  await app.register((instance) => userRoutes(instance, container), { prefix: '/v1' });
+  const container = buildContainer(env, db, overrides);
+  await app.register((instance) => userRoutes(instance, { ...container, authRateLimitMax: env.AUTH_RATE_LIMIT_MAX }), { prefix: '/v1' });
 
   return app;
 }

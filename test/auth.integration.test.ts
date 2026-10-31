@@ -11,7 +11,7 @@ const email = `user-${Date.now()}@example.com`;
 const password = 'senha-forte-123';
 
 beforeAll(async () => {
-  const env = loadEnv({ ...process.env, NODE_ENV: 'test', RATE_LIMIT_MAX: '10000' });
+  const env = loadEnv({ ...process.env, NODE_ENV: 'test', RATE_LIMIT_MAX: '10000', AUTH_RATE_LIMIT_MAX: '10000' });
   conn = createDatabase(env.DATABASE_URL, 5);
   app = await buildApp(env, conn.db);
 });

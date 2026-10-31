@@ -7,7 +7,8 @@ export type AppErrorCode =
   | 'UNAUTHORIZED'
   | 'FORBIDDEN'
   | 'NOT_FOUND'
-  | 'CONFLICT';
+  | 'CONFLICT'
+  | 'UNAVAILABLE';
 
 export class AppError extends Error {
   constructor(
@@ -35,5 +36,11 @@ export class NotFoundError extends AppError {
 export class ConflictError extends AppError {
   constructor(message = 'Conflito') {
     super('CONFLICT', message);
+  }
+}
+
+export class ServiceUnavailableError extends AppError {
+  constructor(message = 'Serviço indisponível') {
+    super('UNAVAILABLE', message);
   }
 }

@@ -9,4 +9,5 @@ export interface UserRepository {
   findByEmail(email: string): Promise<User | null>;
   /** Lança ConflictError se o e-mail já existir (inclusive em corrida). */
   create(user: User): Promise<void>;
+  update(user: User): Promise<void>;
 }

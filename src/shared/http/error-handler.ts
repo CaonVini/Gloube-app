@@ -8,6 +8,7 @@ const STATUS_BY_CODE: Record<AppErrorCode, number> = {
   FORBIDDEN: 403,
   NOT_FOUND: 404,
   CONFLICT: 409,
+  UNAVAILABLE: 503,
 };
 
 /**

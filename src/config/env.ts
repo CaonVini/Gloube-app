@@ -26,6 +26,14 @@ const envSchema = z.object({
   JWT_AUDIENCE: z.string().min(1).default('aurora-mobile'),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(30),
 
+  // Login social (opcional): provedor sem configuração responde 503
+  GOOGLE_CLIENT_IDS: z
+    .string()
+    .default('')
+    .transform((v) => v.split(',').map((s) => s.trim()).filter(Boolean)),
+  FACEBOOK_APP_ID: z.string().optional(),
+  FACEBOOK_APP_SECRET: z.string().optional(),
+
   CORS_ORIGINS: z
     .string()
     .default('')
@@ -36,6 +44,8 @@ const envSchema = z.object({
         .filter(Boolean),
     ),
   RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(100),
+  // Limite por minuto/IP das rotas de credenciais (login, cadastro, social)
+  AUTH_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(10),
   RATE_LIMIT_WINDOW: z.string().default('1 minute'),
 });
 

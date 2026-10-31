@@ -13,6 +13,19 @@ npm test                      # precisa do Postgres + migrations
 ```
 Após alterar `src/infra/database/schema/*`: `npm run db:generate` e depois `npm run db:migrate`.
 
+## Dados do usuário
+`nome`, `e-mail`, `telefone` (normalizado, ex.: `(11) 99999-8888` -> `11999998888`) e `endereço`
+(`street, number, complement?, neighborhood?, city, state, zipCode, country`, salvo em `jsonb`).
+Telefone e endereço são opcionais no cadastro e no login social; `profileComplete` indica se faltam
+(o app pode pedir e enviar via `PATCH /users/me`).
+
+## Login com Google / Facebook
+`POST /v1/auth/social` com `{ "provider": "google" | "facebook", "token": "..." }`.
+- Google: o app envia o **ID token** (Google Sign-In). Validado localmente (RS256, JWKS do Google, `iss` e `aud`).
+- Facebook: o app envia o **access token**; a API confere em `/debug_token` que foi emitido para o NOSSO app e busca `/me`.
+- Fluxo: vínculo já existe -> **só loga**; e-mail igual a conta existente -> **vincula e loga**; senão **cria** a conta (201, `isNewUser: true`).
+- Configure `GOOGLE_CLIENT_IDS` (Android/iOS/Web, separados por vírgula) e `FACEBOOK_APP_ID`/`FACEBOOK_APP_SECRET`. Provedor não configurado responde 503.
+
 ## Arquitetura (SOLID)
 ```
 src/
@@ -35,9 +48,11 @@ src/
 |---|---|---|
 | POST | /auth/register | Cria usuário, retorna user + tokens |
 | POST | /auth/login | Autentica |
+| POST | /auth/social | Login com Google/Facebook: conta existente só loga; senão cria (201) |
 | POST | /auth/refresh | Rotaciona refresh token |
 | POST | /auth/logout | Revoga refresh token (idempotente) |
 | GET | /users/me | Perfil (Bearer JWT) |
+| PATCH | /users/me | Atualiza nome, telefone e endereço (`null` limpa) |
 | GET | /health | Liveness + checagem do banco |
 
 Erros: `{ "error": { "code", "message", "details?" } }`.
@@ -47,6 +62,14 @@ Erros: `{ "error": { "code", "message", "details?" } }`.
 - Senhas com **Argon2id** (parâmetros OWASP), com verify "falso" quando o e-mail não existe (reduz enumeração por timing); mensagem única "Credenciais inválidas".
 - **JWT HS256** de vida curta (15 min) com algoritmo fixado, `iss`/`aud` validados; refresh token **opaco**, guardado só como SHA-256, **rotação a cada uso** e detecção de reuso (revoga todas as sessões), revogação atômica contra corrida.
 - Zod com limites de tamanho (senha ≤128 evita DoS por hash), `bodyLimit` 100 KB, Helmet, CORS desligado por padrão, **rate limit** global e mais estrito em login/registro, logs com `Authorization` redigido, 500 sem vazar detalhes internos, queries parametrizadas pelo Drizzle (sem SQL injection), Docker como usuário não-root, Postgres exposto só em localhost, `npm audit` sem vulnerabilidades.
+
+### Login social: decisões de segurança
+- Tokens são sempre validados junto ao provedor, com `aud`/`app_id` conferido (impede aceitar token de outro app).
+- Só vincula/cria conta com **e-mail verificado pelo provedor**.
+- **Pre-hijacking**: o e-mail do cadastro por senha não é verificado; alguém poderia criar a conta com o e-mail da vítima antes dela. Quando a vítima entra com Google/Facebook e a conta já tinha senha, a **senha é anulada e as sessões são revogadas**. Efeito colateral: quem tinha senha e passa a usar o login social deixa de entrar por senha (precisaria de "definir senha", ainda não existe).
+- Conta criada só por login social não aceita login por senha (mesma resposta/tempo de "credenciais inválidas").
+- Primeiros logins simultâneos são tratados com retry sobre os índices únicos (testado com 8 requisições paralelas).
+- Facebook: o e-mail só vem se o usuário concedeu a permissão `email`; sem ele o login é recusado (401).
 
 ### Riscos e limitações conhecidas (recomendado antes de produção)
 1. **Rate limit em memória**: com várias instâncias cada uma conta separado. Use Redis (`@fastify/rate-limit` suporta `redis`). Atrás de proxy, configure `TRUST_PROXY=true`, senão o IP é o do proxy.

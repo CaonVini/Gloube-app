@@ -13,6 +13,13 @@ import { LogoutUseCase } from '../modules/users/application/use-cases/logout.use
 import { GetUserProfileUseCase } from '../modules/users/application/use-cases/get-user-profile.use-case.js';
 import { AuthController } from '../modules/users/http/auth.controller.js';
 import { UserController } from '../modules/users/http/user.controller.js';
+import { DrizzleSocialIdentityRepository } from '../modules/users/infra/drizzle-social-identity.repository.js';
+import { GoogleTokenVerifier } from '../modules/users/infra/google-token-verifier.js';
+import { FacebookTokenVerifier } from '../modules/users/infra/facebook-token-verifier.js';
+import { LoginWithSocialUseCase } from '../modules/users/application/use-cases/login-with-social.use-case.js';
+import { UpdateProfileUseCase } from '../modules/users/application/use-cases/update-profile.use-case.js';
+import type { SocialProvider } from '../modules/users/domain/social-identity.js';
+import type { SocialTokenVerifier } from '../modules/users/application/ports/social-token-verifier.js';
 import { makeAuthenticate } from './http/authenticate.js';
 
 /**
@@ -20,7 +27,12 @@ import { makeAuthenticate } from './http/authenticate.js';
  * Injeção de dependência manual via construtor — sem decorators/reflection,
  * tipada pelo TypeScript e sem custo em runtime.
  */
-export function buildContainer(env: Env, db: Database) {
+export interface ContainerOverrides {
+  /** Permite trocar os verificadores sociais (testes não chamam Google/Facebook de verdade). */
+  socialVerifiers?: Partial<Record<SocialProvider, SocialTokenVerifier>>;
+}
+
+export function buildContainer(env: Env, db: Database, overrides: ContainerOverrides = {}) {
   // Infra
   const userRepository = new DrizzleUserRepository(db);
   const refreshTokenRepository = new DrizzleRefreshTokenRepository(db);
@@ -32,6 +44,14 @@ export function buildContainer(env: Env, db: Database) {
     audience: env.JWT_AUDIENCE,
   });
   const opaqueTokenService = new CryptoOpaqueTokenService();
+  const socialIdentityRepository = new DrizzleSocialIdentityRepository(db);
+  const socialVerifiers: Partial<Record<SocialProvider, SocialTokenVerifier>> = {
+    ...(env.GOOGLE_CLIENT_IDS.length > 0 ? { google: new GoogleTokenVerifier(env.GOOGLE_CLIENT_IDS) } : {}),
+    ...(env.FACEBOOK_APP_ID && env.FACEBOOK_APP_SECRET
+      ? { facebook: new FacebookTokenVerifier(env.FACEBOOK_APP_ID, env.FACEBOOK_APP_SECRET) }
+      : {}),
+    ...overrides.socialVerifiers,
+  };
 
   // Application
   const issueSession = new IssueSessionService(
@@ -45,12 +65,20 @@ export function buildContainer(env: Env, db: Database) {
   const refreshSession = new RefreshSessionUseCase(refreshTokenRepository, opaqueTokenService, issueSession);
   const logout = new LogoutUseCase(refreshTokenRepository, opaqueTokenService);
   const getUserProfile = new GetUserProfileUseCase(userRepository);
+  const updateProfile = new UpdateProfileUseCase(userRepository);
+  const loginWithSocial = new LoginWithSocialUseCase(
+    socialVerifiers,
+    userRepository,
+    socialIdentityRepository,
+    refreshTokenRepository,
+    issueSession,
+  );
 
   // HTTP
   return {
     authenticate: makeAuthenticate(accessTokenService),
-    authController: new AuthController(registerUser, authenticateUser, refreshSession, logout),
-    userController: new UserController(getUserProfile),
+    authController: new AuthController(registerUser, authenticateUser, refreshSession, logout, loginWithSocial),
+    userController: new UserController(getUserProfile, updateProfile),
   };
 }
 

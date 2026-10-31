@@ -25,6 +25,8 @@ export class DrizzleUserRepository implements UserRepository {
         id: user.id,
         name: user.name,
         email: user.email,
+        phone: user.phone,
+        address: user.address,
         passwordHash: user.passwordHash,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
@@ -33,6 +35,19 @@ export class DrizzleUserRepository implements UserRepository {
       if (isUniqueViolation(err)) throw new ConflictError('E-mail já cadastrado');
       throw err;
     }
+  }
+
+  async update(user: User): Promise<void> {
+    await this.db
+      .update(users)
+      .set({
+        name: user.name,
+        phone: user.phone,
+        address: user.address,
+        passwordHash: user.passwordHash,
+        updatedAt: user.updatedAt,
+      })
+      .where(eq(users.id, user.id));
   }
 
   private toDomain(row: UserRow): User {
