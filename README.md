@@ -70,6 +70,15 @@ src/
 
 Erros: `{ "error": { "code", "message", "details?" } }`.
 
+## Viagens (`modules/trips`)
+### Modelo e regras
+Uma linha em `trips` por viagem (dono = `user_id`, toda consulta filtra por ele). Origem/destinos/lugares curtidos/roteiro ficam em `jsonb`
+(a posição no array é a ordem escolhida). Valores de `climate`, `reach`, `companion`, `experiences` e `needs` são os mesmos do app.
+- **Período** (3 modos): `indefinido`, `mes` (`month`,`year`) ou `definidas` (`startDate`, `endDate?` em `AAAA-MM-DD`). Nada antes de **hoje** (fuso de Brasília); a volta é depois da ida; com ida e volta, `days` vem do intervalo.
+- **Sem limite** de duração. **Orçamento**: reais por pessoa, `>= 0`, `null` = sem limite definido. Máximo de **10 destinos**.
+- Moeda única: BRL.
+Nesta etapa só existem modelo, regras e persistência; as rotas chegam nas próximas PRs.
+
 ## Análise crítica
 ### Segurança (aplicado)
 - Senhas com **Argon2id** (parâmetros OWASP), com verify "falso" quando o e-mail não existe (reduz enumeração por timing); mensagem única "Credenciais inválidas".
