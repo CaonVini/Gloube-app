@@ -2,7 +2,8 @@ import { UnauthorizedError } from '../../../../shared/errors/app-error.js';
 import { User } from '../../domain/user.entity.js';
 import type { UserRepository } from '../../domain/user.repository.js';
 import type { PasswordHasher } from '../ports/password-hasher.js';
-import { toUserDTO, type AuthResultDTO } from '../dtos.js';
+import type { AuthResultDTO } from '../dtos.js';
+import type { UserPresenter } from '../user-presenter.js';
 import type { IssueSessionService } from './issue-session.service.js';
 
 export interface AuthenticateUserInput {
@@ -17,6 +18,7 @@ export class AuthenticateUserUseCase {
     private readonly users: UserRepository,
     private readonly hasher: PasswordHasher,
     private readonly issueSession: IssueSessionService,
+    private readonly presenter: UserPresenter,
   ) {}
 
   async execute(input: AuthenticateUserInput): Promise<AuthResultDTO> {
@@ -35,7 +37,7 @@ export class AuthenticateUserUseCase {
     if (!valid) throw new UnauthorizedError('Credenciais inválidas');
 
     const tokens = await this.issueSession.execute(user.id);
-    return { user: toUserDTO(user), tokens };
+    return { user: await this.presenter.present(user), tokens };
   }
 
   private getDummyHash(): Promise<string> {

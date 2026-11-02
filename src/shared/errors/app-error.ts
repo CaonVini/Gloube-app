@@ -27,6 +27,12 @@ export class UnauthorizedError extends AppError {
   }
 }
 
+export class ValidationError extends AppError {
+  constructor(message = 'Dados inválidos', details?: unknown) {
+    super('VALIDATION_ERROR', message, details);
+  }
+}
+
 export class NotFoundError extends AppError {
   constructor(message = 'Recurso não encontrado') {
     super('NOT_FOUND', message);

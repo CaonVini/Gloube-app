@@ -10,6 +10,9 @@ const booleanFromString = z
   .default('false')
   .transform((v) => v === 'true' || v === '1');
 
+/** Variável vazia (ex.: `S3_ENDPOINT=` no .env/compose) conta como ausente. */
+const emptyToUndefined = (v: unknown) => (typeof v === 'string' && v.trim() === '' ? undefined : v);
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   HOST: z.string().default('0.0.0.0'),
@@ -34,6 +37,17 @@ const envSchema = z.object({
   FACEBOOK_APP_ID: z.string().optional(),
   FACEBOOK_APP_SECRET: z.string().optional(),
 
+  // Avatar (S3 ou compatível, ex.: MinIO). Sem S3_BUCKET os endpoints de avatar respondem 503.
+  S3_BUCKET: z.preprocess(emptyToUndefined, z.string().min(3).optional()),
+  S3_REGION: z.string().min(1).default('us-east-1'),
+  // Só para S3 compatível (MinIO/R2); em AWS deixe vazio
+  S3_ENDPOINT: z.preprocess(emptyToUndefined, z.url().optional()),
+  // Opcionais: se vazios, usa a cadeia padrão de credenciais da AWS (IAM role, etc.)
+  S3_ACCESS_KEY_ID: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+  S3_SECRET_ACCESS_KEY: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+  S3_FORCE_PATH_STYLE: booleanFromString,
+  AVATAR_URL_TTL_SECONDS: z.coerce.number().int().min(30).max(3600).default(300),
+
   CORS_ORIGINS: z
     .string()
     .default('')
@@ -46,6 +60,8 @@ const envSchema = z.object({
   RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(100),
   // Limite por minuto/IP das rotas de credenciais (login, cadastro, social)
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(10),
+  // Limite por minuto/IP de upload/remoção de foto (processar imagem é caro)
+  UPLOAD_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(10),
   RATE_LIMIT_WINDOW: z.string().default('1 minute'),
 });
 

@@ -32,6 +32,14 @@ Após alterar `src/infra/database/schema/*`: `npm run db:generate` e depois `npm
 Telefone e endereço são opcionais no cadastro e no login social; `profileComplete` indica se faltam
 (o app pode pedir e enviar via `PATCH /users/me`).
 
+## Foto de perfil (avatar)
+- Bucket **S3 privado**; o banco guarda só a *chave* (`users.avatar_key`) e a API devolve `avatarUrl`, uma **URL assinada** que expira
+  (`AVATAR_URL_TTL_SECONDS`, padrão 5 min). O app deve guardar a foto em cache por usuário, não pela URL, e pedir `GET /users/me` de novo quando expirar.
+- Upload passa pela API: valida pelo **conteúdo** (não pelo `Content-Type`), aceita JPG/PNG/WebP até 5 MB e até 50 MP, aplica a orientação EXIF,
+  **remove EXIF/GPS**, recorta para 512x512 e salva como WebP em `avatars/<userId>/<uuid>.webp`. A foto anterior é apagada.
+- Local: o `docker compose` já sobe um MinIO (console em http://127.0.0.1:9001, usuário/senha de dev no compose). Em produção use S3 real
+  com IAM role (deixe `S3_ENDPOINT` vazio e `S3_FORCE_PATH_STYLE=false`). Sem `S3_BUCKET` os endpoints de foto respondem 503.
+
 ## Login com Google / Facebook
 `POST /v1/auth/social` com `{ "provider": "google" | "facebook", "token": "..." }`.
 - Google: o app envia o **ID token** (Google Sign-In). Validado localmente (RS256, JWKS do Google, `iss` e `aud`).
@@ -66,6 +74,8 @@ src/
 | POST | /auth/logout | Revoga refresh token (idempotente) |
 | GET | /users/me | Perfil (Bearer JWT) |
 | PATCH | /users/me | Atualiza nome, telefone e endereço (`null` limpa) |
+| PUT | /users/me/avatar | Foto de perfil (`multipart/form-data`, campo `file`; JPG/PNG/WebP, máx. 5 MB). Devolve o perfil com `avatarUrl` |
+| DELETE | /users/me/avatar | Remove a foto (idempotente) |
 | GET | /health | Liveness + checagem do banco |
 
 Erros: `{ "error": { "code", "message", "details?" } }`.
