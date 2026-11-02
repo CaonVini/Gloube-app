@@ -1,6 +1,7 @@
 import { ConflictError, ValidationError } from '../../../../shared/errors/app-error.js';
 import type { TripContent } from '../../domain/trip.entity.js';
 import type { TripRepository } from '../../domain/trip.repository.js';
+import { assertComplete } from '../../domain/trip-completeness.js';
 import { EDITABLE_STATUSES, todayInBrazil } from '../../domain/trip-rules.js';
 import { assertValidContent } from '../trip-content-input.js';
 import { loadOwnedTrip } from '../load-trip.js';
@@ -21,7 +22,12 @@ export class UpdateTripUseCase {
     const periodChanged = changes.period !== undefined && JSON.stringify(changes.period) !== JSON.stringify(trip.content.period);
     const content = assertValidContent(merged, todayInBrazil(), { checkPeriod: periodChanged });
 
-    if (Object.keys(changes).length === 0) throw new ValidationError('Informe ao menos um campo');
+    if (trip.status !== 'rascunho') {
+      // Depois de planejada a viagem não pode voltar a ficar incompleta
+      assertComplete(content);
+    } else if (Object.keys(changes).length === 0) {
+      throw new ValidationError('Informe ao menos um campo');
+    }
 
     const updated = trip.withContent(content);
     const ok = await this.trips.saveContent(updated, trip.status);

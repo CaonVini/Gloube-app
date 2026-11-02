@@ -43,6 +43,8 @@ export const updateTripBodySchema = createTripBodySchema;
 
 export const tripIdParamsSchema = z.object({ id: z.uuid() });
 
+export const changeStatusBodySchema = z.object({ status: z.enum(TRIP_STATUSES) }).strict();
+
 export const listTripsQuerySchema = z.object({
   status: z.enum(TRIP_STATUSES).optional(),
   archived: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
