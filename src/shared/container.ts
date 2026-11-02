@@ -27,7 +27,7 @@ import { ListTripsUseCase } from '../modules/trips/application/use-cases/list-tr
 import { UpdateTripUseCase } from '../modules/trips/application/use-cases/update-trip.use-case.js';
 import { ChangeTripStatusUseCase } from '../modules/trips/application/use-cases/change-trip-status.use-case.js';
 import { SetTripArchivedUseCase } from '../modules/trips/application/use-cases/set-trip-archived.use-case.js';
-import { GenerateItineraryUseCase } from '../modules/trips/application/use-cases/itinerary.use-cases.js';
+import { GenerateItineraryUseCase, ReplaceItineraryUseCase } from '../modules/trips/application/use-cases/itinerary.use-cases.js';
 import { TripController } from '../modules/trips/http/trip.controller.js';
 import { makeAuthenticate } from './http/authenticate.js';
 
@@ -98,6 +98,7 @@ export function buildContainer(env: Env, db: Database, overrides: ContainerOverr
       new ChangeTripStatusUseCase(tripRepository),
       new SetTripArchivedUseCase(tripRepository),
       new GenerateItineraryUseCase(tripRepository),
+      new ReplaceItineraryUseCase(tripRepository),
     ),
   };
 }
