@@ -3,6 +3,7 @@ import { loginBodySchema, refreshBodySchema, registerBodySchema, socialLoginBody
 import {
   changeStatusBodySchema, createTripBodySchema, generateItineraryBodySchema, replaceItineraryBodySchema, updateTripBodySchema,
 } from '../modules/trips/http/trip.schemas.js';
+import { enqueueBodySchema } from '../modules/ai/http/ai.schemas.js';
 import { TRIP_STATUSES } from '../modules/trips/domain/trip.types.js';
 
 type Json = Record<string, unknown>;
@@ -67,6 +68,20 @@ const schemas: Record<string, Json> = {
     createdAt: str({ format: 'date-time' }), updatedAt: str({ format: 'date-time' }),
   }),
   TripList: obj({ items: { type: 'array', items: ref('TripSummary') }, nextCursor: nullable(str({ description: 'Passe em ?cursor= para a próxima página' })) }),
+  Generation: obj({
+    id: str({ format: 'uuid' }), tripId: str({ format: 'uuid' }), status: str({ enum: ['queued', 'running', 'succeeded', 'failed'] }),
+    model: str(), promptVersion: str(), applied: { type: 'boolean', description: 'false = o roteiro foi editado enquanto a IA trabalhava; o resultado não sobrescreveu' },
+    errorCode: nullable(str({ enum: ['provider_error', 'provider_timeout', 'invalid_output', 'trip_unavailable', 'worker_timeout'] })),
+    inputTokens: nullable({ type: 'integer' }), outputTokens: nullable({ type: 'integer' }),
+    costUsd: nullable({ type: 'number', description: 'Custo estimado em USD (tokens x preço configurado)' }), durationMs: nullable({ type: 'integer' }),
+    createdAt: str({ format: 'date-time' }), startedAt: nullable(str({ format: 'date-time' })), finishedAt: nullable(str({ format: 'date-time' })),
+  }),
+  GenerationList: obj({ items: { type: 'array', items: ref('Generation') } }),
+  AiUsage: obj({
+    generations: { type: 'integer' }, inputTokens: { type: 'integer' }, outputTokens: { type: 'integer' }, costUsd: { type: 'number' },
+    today: obj({ generations: { type: 'integer' }, limit: { type: 'integer' } }),
+  }),
+  EnqueueGenerationBody: fromZod(enqueueBodySchema),
   UserTripStats: obj({ trips: { type: 'integer' }, countries: { type: 'integer' }, places: { type: 'integer' } }),
   RegisterBody: fromZod(registerBodySchema),
   LoginBody: fromZod(loginBodySchema),
@@ -139,6 +154,10 @@ const ops: Op[] = [
   { method: 'delete', path: '/v1/trips/{id}/archive', tag: 'Status e arquivo', summary: 'Desarquiva a viagem', auth: true, params: [idParam], success: ['200', 'Viagem desarquivada', 'Trip'], errors: [...tripErrors] },
   { method: 'post', path: '/v1/trips/{id}/itinerary/generate', tag: 'Roteiro', summary: 'Gera o roteiro inicial', description: 'Determinístico (sem IA): chegada, lugares curtidos, volta. Vários destinos dividem os dias na ordem. Se já existe roteiro, exige `replace: true`. Limite de 366 dias no roteiro.', auth: true, params: [idParam], body: 'GenerateItineraryBody', success: ['200', 'Viagem com roteiro', 'Trip'], errors: [...tripErrors, 'Conflict'] },
   { method: 'put', path: '/v1/trips/{id}/itinerary', tag: 'Roteiro', summary: 'Salva o roteiro editado (inteiro)', description: 'O roteiro é 100% editável: envie o roteiro completo. `revision` precisa ser o `itineraryRevision` atual, senão 409 (evita sobrescrever edição feita em outro aparelho).', auth: true, params: [idParam], body: 'ReplaceItineraryBody', success: ['200', 'Viagem com o roteiro salvo', 'Trip'], errors: [...tripErrors, 'Conflict'] },
+  { method: 'post', path: '/v1/trips/{id}/itinerary/ai', tag: 'IA', summary: 'Pede o roteiro final por IA (fila)', description: 'Responde `202` na hora e a geração roda em segundo plano: consulte `GET /v1/ai/generations/{id}` até `succeeded`/`failed`. A IA recebe os dados da viagem + a prévia determinística e o resultado é validado antes de entrar na viagem (só se o roteiro não foi editado nesse meio tempo). Uma geração ativa por viagem; teto diário por usuário (`429`); `503` se a IA não estiver configurada.', auth: true, params: [idParam], body: 'EnqueueGenerationBody', success: ['202', 'Geração enfileirada', 'Generation'], errors: [...tripErrors, 'Conflict', 'Unavailable'] },
+  { method: 'get', path: '/v1/trips/{id}/generations', tag: 'IA', summary: 'Últimas gerações da viagem (com tokens e custo)', auth: true, params: [idParam], success: ['200', 'Gerações', 'GenerationList'], errors: [...tripErrors] },
+  { method: 'get', path: '/v1/ai/generations/{generationId}', tag: 'IA', summary: 'Status e custo de uma geração', auth: true, params: [{ name: 'generationId', in: 'path', required: true, schema: str({ format: 'uuid' }) }], success: ['200', 'Geração', 'Generation'], errors: ['Unauthorized', 'NotFound'] },
+  { method: 'get', path: '/v1/users/me/ai-usage', tag: 'IA', summary: 'Meu consumo de IA', description: 'Total de gerações, tokens e custo estimado (USD) do usuário e quanto resta do teto de hoje.', auth: true, success: ['200', 'Consumo', 'AiUsage'], errors: ['Unauthorized'] },
 
   { method: 'get', path: '/health', tag: 'Sistema', summary: 'Liveness e checagem do banco', success: ['200', 'OK'], errors: ['Unavailable'] },
 ];
@@ -177,7 +196,7 @@ export function buildOpenApiDocument(): Json {
     },
     servers: [{ url: '/', description: 'Servidor atual' }],
     tags: [
-      { name: 'Autenticação' }, { name: 'Perfil' }, { name: 'Viagens' }, { name: 'Status e arquivo' }, { name: 'Roteiro' }, { name: 'Sistema' },
+      { name: 'Autenticação' }, { name: 'Perfil' }, { name: 'Viagens' }, { name: 'Status e arquivo' }, { name: 'Roteiro' }, { name: 'IA' }, { name: 'Sistema' },
     ],
     paths,
     components: {

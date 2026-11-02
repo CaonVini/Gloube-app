@@ -8,7 +8,8 @@ export type AppErrorCode =
   | 'FORBIDDEN'
   | 'NOT_FOUND'
   | 'CONFLICT'
-  | 'UNAVAILABLE';
+  | 'UNAVAILABLE'
+  | 'RATE_LIMITED';
 
 export class AppError extends Error {
   constructor(
@@ -48,5 +49,11 @@ export class ConflictError extends AppError {
 export class ServiceUnavailableError extends AppError {
   constructor(message = 'Serviço indisponível') {
     super('UNAVAILABLE', message);
+  }
+}
+
+export class RateLimitedError extends AppError {
+  constructor(message = 'Limite excedido', details?: unknown) {
+    super('RATE_LIMITED', message, details);
   }
 }
