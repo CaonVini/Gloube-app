@@ -34,6 +34,10 @@ const envSchema = z.object({
   FACEBOOK_APP_ID: z.string().optional(),
   FACEBOOK_APP_SECRET: z.string().optional(),
 
+  // Busca de destinos/lugares (Google Places API New). Sem chave, as rotas /places respondem 503.
+  GOOGLE_PLACES_API_KEY: z.preprocess((v) => (typeof v === 'string' && v.trim() === '' ? undefined : v), z.string().min(10).optional()),
+  PLACES_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(30),
+
   CORS_ORIGINS: z
     .string()
     .default('')

@@ -29,6 +29,9 @@ import { ChangeTripStatusUseCase } from '../modules/trips/application/use-cases/
 import { SetTripArchivedUseCase } from '../modules/trips/application/use-cases/set-trip-archived.use-case.js';
 import { GenerateItineraryUseCase, ReplaceItineraryUseCase } from '../modules/trips/application/use-cases/itinerary.use-cases.js';
 import { TripController } from '../modules/trips/http/trip.controller.js';
+import { GooglePlacesProvider } from '../modules/places/infra/google-places-provider.js';
+import { PlacesController } from '../modules/places/http/places.controller.js';
+import type { PlacesProvider } from '../modules/places/application/places-provider.js';
 import { makeAuthenticate } from './http/authenticate.js';
 
 /**
@@ -39,6 +42,8 @@ import { makeAuthenticate } from './http/authenticate.js';
 export interface ContainerOverrides {
   /** Permite trocar os verificadores sociais (testes não chamam Google/Facebook de verdade). */
   socialVerifiers?: Partial<Record<SocialProvider, SocialTokenVerifier>>;
+  /** Permite trocar a fonte de lugares (testes não chamam o Google). */
+  placesProvider?: PlacesProvider;
 }
 
 export function buildContainer(env: Env, db: Database, overrides: ContainerOverrides = {}) {
@@ -85,11 +90,15 @@ export function buildContainer(env: Env, db: Database, overrides: ContainerOverr
 
   const tripRepository = new DrizzleTripRepository(db);
 
+  const placesProvider: PlacesProvider | null =
+    overrides.placesProvider ?? (env.GOOGLE_PLACES_API_KEY ? new GooglePlacesProvider({ apiKey: env.GOOGLE_PLACES_API_KEY }) : null);
+
   // HTTP
   return {
     authenticate: makeAuthenticate(accessTokenService),
     authController: new AuthController(registerUser, authenticateUser, refreshSession, logout, loginWithSocial),
     userController: new UserController(getUserProfile, updateProfile),
+    placesController: new PlacesController(placesProvider),
     tripController: new TripController(
       new CreateTripUseCase(tripRepository),
       new GetTripUseCase(tripRepository),
