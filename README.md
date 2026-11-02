@@ -73,6 +73,7 @@ src/
 | POST | /trips/:id/status | Muda status (planejada, em_andamento, concluida, cancelada) |
 | POST | /trips/:id/archive | Arquiva (não existe exclusão) |
 | DELETE | /trips/:id/archive | Desarquiva |
+| POST | /trips/:id/itinerary/generate | Gera o roteiro inicial (`{ "replace": true }` para refazer) |
 | GET | /health | Liveness + checagem do banco |
 
 Erros: `{ "error": { "code", "message", "details?" } }`.
@@ -91,6 +92,9 @@ Listagem paginada por cursor (`nextCursor`), do mais recente para o mais antigo,
 `rascunho -> planejada -> em_andamento -> concluida`, e `cancelada` a partir de rascunho/planejada/em andamento. Para virar **planejada** são obrigatórios:
 origem, 1+ destino, companhia, período e duração (cuidados e orçamento são opcionais). `concluida`/`cancelada` não editam. Com datas exatas o status
 avança sozinho (começou -> em andamento; passou -> concluída). **Arquivar** não exclui: só esconde da lista padrão.
+### Roteiro: geração
+`POST /trips/:id/itinerary/generate` monta os dias (chegada, lugares curtidos distribuídos, volta) com a mesma lógica do app, sem IA. Vários destinos
+dividem os dias na ordem. Se já existe roteiro, exige `replace: true`.
 
 ## Análise crítica
 ### Segurança (aplicado)
