@@ -7,6 +7,7 @@ import type { Env } from './config/env.js';
 import type { Database } from './infra/database/client.js';
 import { buildContainer, type ContainerOverrides } from './shared/container.js';
 import { errorHandler } from './shared/http/error-handler.js';
+import { placesRoutes } from './modules/places/http/places.routes.js';
 import { tripRoutes } from './modules/trips/http/trip.routes.js';
 import { userRoutes } from './modules/users/http/user.routes.js';
 
@@ -53,6 +54,8 @@ export async function buildApp(env: Env, db: Database, overrides: ContainerOverr
   await app.register((instance) => userRoutes(instance, { ...container, authRateLimitMax: env.AUTH_RATE_LIMIT_MAX }), { prefix: '/v1' });
 
   await app.register((instance) => tripRoutes(instance, container), { prefix: '/v1' });
+
+  await app.register((instance) => placesRoutes(instance, { ...container, placesRateLimitMax: env.PLACES_RATE_LIMIT_MAX }), { prefix: '/v1' });
 
   return app;
 }
