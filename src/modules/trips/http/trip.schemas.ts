@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import {
-  CLIMATES, COMPANIONS, EXPERIENCES, MAX_DESTINATIONS, NEEDS, PLACE_KINDS, REACHES, TRIP_STATUSES,
+  CLIMATES, COMPANIONS, EXPERIENCES, MAX_DESTINATIONS, MAX_ITEMS_PER_DAY, MAX_ITINERARY_DAYS, NEEDS, PLACE_KINDS, REACHES, TRIP_STATUSES,
 } from '../domain/trip.types.js';
 
 const text = (max: number) => z.string().trim().min(1).max(max);
@@ -53,3 +53,21 @@ export const listTripsQuerySchema = z.object({
 });
 
 export const generateItineraryBodySchema = z.object({ replace: z.boolean().default(false) }).strict().default({ replace: false });
+
+export const replaceItineraryBodySchema = z
+  .object({
+    revision: z.number().int().min(0),
+    days: z
+      .array(
+        z.object({
+          id: z.uuid().optional(),
+          title: text(120),
+          destinationRef: text(100).nullable().default(null),
+          items: z
+            .array(z.object({ id: z.uuid().optional(), text: text(200), placeRef: text(150).nullable().default(null) }).strict())
+            .max(MAX_ITEMS_PER_DAY),
+        }).strict(),
+      )
+      .max(MAX_ITINERARY_DAYS),
+  })
+  .strict();

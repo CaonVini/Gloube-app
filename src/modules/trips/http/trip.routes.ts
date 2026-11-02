@@ -15,5 +15,6 @@ export async function tripRoutes(app: FastifyInstance, deps: { tripController: T
   app.post('/trips/:id/archive', auth, c.archive);
   app.delete('/trips/:id/archive', auth, c.unarchive);
   app.post('/trips/:id/itinerary/generate', heavy, c.generate);
+  app.put('/trips/:id/itinerary', auth, c.putItinerary);
   // Não existe DELETE /trips/:id de propósito: viagens só são arquivadas.
 }

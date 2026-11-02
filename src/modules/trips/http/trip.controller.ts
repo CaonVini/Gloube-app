@@ -5,10 +5,10 @@ import type { ListTripsUseCase } from '../application/use-cases/list-trips.use-c
 import type { UpdateTripUseCase } from '../application/use-cases/update-trip.use-case.js';
 import type { ChangeTripStatusUseCase } from '../application/use-cases/change-trip-status.use-case.js';
 import type { SetTripArchivedUseCase } from '../application/use-cases/set-trip-archived.use-case.js';
-import type { GenerateItineraryUseCase } from '../application/use-cases/itinerary.use-cases.js';
+import type { GenerateItineraryUseCase, ReplaceItineraryUseCase } from '../application/use-cases/itinerary.use-cases.js';
 import {
   changeStatusBodySchema, createTripBodySchema, generateItineraryBodySchema, listTripsQuerySchema,
-  tripIdParamsSchema, updateTripBodySchema,
+  replaceItineraryBodySchema, tripIdParamsSchema, updateTripBodySchema,
 } from './trip.schemas.js';
 
 /** Controller magro: valida a borda (zod), pega o userId do token e delega. Nunca lê userId/status do corpo. */
@@ -21,6 +21,7 @@ export class TripController {
     private readonly changeStatus: ChangeTripStatusUseCase,
     private readonly setArchived: SetTripArchivedUseCase,
     private readonly generateItinerary: GenerateItineraryUseCase,
+    private readonly replaceItinerary: ReplaceItineraryUseCase,
   ) {}
 
   create = async (req: FastifyRequest, reply: FastifyReply) =>
@@ -47,4 +48,8 @@ export class TripController {
   generate = async (req: FastifyRequest, reply: FastifyReply) =>
     reply.send(await this.generateItinerary.execute(req.userId, tripIdParamsSchema.parse(req.params).id, generateItineraryBodySchema.parse(req.body ?? undefined).replace));
 
+  putItinerary = async (req: FastifyRequest, reply: FastifyReply) => {
+    const body = replaceItineraryBodySchema.parse(req.body);
+    return reply.send(await this.replaceItinerary.execute(req.userId, tripIdParamsSchema.parse(req.params).id, body.revision, body));
+  };
 }

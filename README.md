@@ -74,6 +74,7 @@ src/
 | POST | /trips/:id/archive | Arquiva (não existe exclusão) |
 | DELETE | /trips/:id/archive | Desarquiva |
 | POST | /trips/:id/itinerary/generate | Gera o roteiro inicial (`{ "replace": true }` para refazer) |
+| PUT | /trips/:id/itinerary | Salva o roteiro editado inteiro (`revision` evita sobrescrever edição alheia) |
 | GET | /health | Liveness + checagem do banco |
 
 Erros: `{ "error": { "code", "message", "details?" } }`.
@@ -95,6 +96,8 @@ avança sozinho (começou -> em andamento; passou -> concluída). **Arquivar** n
 ### Roteiro: geração
 `POST /trips/:id/itinerary/generate` monta os dias (chegada, lugares curtidos distribuídos, volta) com a mesma lógica do app, sem IA. Vários destinos
 dividem os dias na ordem. Se já existe roteiro, exige `replace: true`.
+### Roteiro: edição
+`PUT /trips/:id/itinerary` recebe o roteiro inteiro (adicionar, remover, reordenar e editar dias e itens). `revision` precisa ser a atual, senão 409.
 
 ## Análise crítica
 ### Segurança (aplicado)
