@@ -23,6 +23,9 @@ export const trips = pgTable(
     needs: text('needs').array().notNull().default(sql`'{}'::text[]`),
     destinations: jsonb('destinations').notNull().default(sql`'[]'::jsonb`),
     likedPlaces: jsonb('liked_places').notNull().default(sql`'[]'::jsonb`),
+    dislikedPlaces: jsonb('disliked_places').notNull().default(sql`'[]'::jsonb`),
+    planMode: varchar('plan_mode', { length: 20 }),
+    budgetUnlimited: boolean('budget_unlimited').notNull().default(false),
 
     periodMode: varchar('period_mode', { length: 12 }),
     periodMonth: smallint('period_month'),

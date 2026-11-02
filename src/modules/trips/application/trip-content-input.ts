@@ -11,7 +11,13 @@ export function assertValidContent(c: TripContent, today: string, opts: { checkP
   if (c.likedPlaces.some((p) => !refs.has(p.destinationRef))) {
     throw new ValidationError('Lugar curtido pertence a um destino que não está na viagem');
   }
-  if (new Set(c.likedPlaces.map((p) => p.ref)).size !== c.likedPlaces.length) throw new ValidationError('Lugar repetido');
+  if (c.dislikedPlaces.some((p) => !refs.has(p.destinationRef))) {
+    throw new ValidationError('Lugar não curtido pertence a um destino que não está na viagem');
+  }
+  // Um card só pode ter UMA reação (curtir ou não curtir), nunca as duas
+  const reacted = [...c.likedPlaces, ...c.dislikedPlaces].map((p) => p.ref);
+  if (new Set(reacted).size !== reacted.length) throw new ValidationError('Lugar repetido ou com curtir e não curtir ao mesmo tempo');
+  if (c.budgetUnlimited && c.budgetBrl !== null) throw new ValidationError('Orçamento "sem limite" não pode ter valor');
   if (c.period && opts.checkPeriod !== false) validatePeriod(c.period, today);
   // Com ida e volta, a duração é a do intervalo (como no app)
   const days = resolveDays(c.period, c.days);

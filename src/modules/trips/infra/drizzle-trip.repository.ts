@@ -140,7 +140,8 @@ export class DrizzleTripRepository implements TripRepository {
     const c = trip.content;
     return {
       origin: c.origin, climate: c.climate, reach: c.reach, companion: c.companion,
-      experiences: c.experiences, needs: c.needs, destinations: c.destinations, likedPlaces: c.likedPlaces,
+      experiences: c.experiences, needs: c.needs, destinations: c.destinations, likedPlaces: c.likedPlaces, dislikedPlaces: c.dislikedPlaces,
+      planMode: c.planMode, budgetUnlimited: c.budgetUnlimited,
       ...periodColumns(c.period), days: c.days,
       budgetBrl: c.budgetBrl === null ? null : c.budgetBrl.toFixed(2),
     };
@@ -152,7 +153,8 @@ export class DrizzleTripRepository implements TripRepository {
       origin: r.origin, climate: r.climate as TripProps['climate'], reach: r.reach as TripProps['reach'],
       companion: r.companion as TripProps['companion'],
       experiences: r.experiences as TripProps['experiences'], needs: r.needs as TripProps['needs'],
-      destinations: r.destinations as TripProps['destinations'], likedPlaces: r.likedPlaces as TripProps['likedPlaces'],
+      destinations: r.destinations as TripProps['destinations'], likedPlaces: r.likedPlaces as TripProps['likedPlaces'], dislikedPlaces: r.dislikedPlaces as TripProps['dislikedPlaces'],
+      planMode: r.planMode as TripProps['planMode'], budgetUnlimited: r.budgetUnlimited,
       period: toPeriod(r), days: r.days,
       budgetBrl: r.budgetBrl === null ? null : Number(r.budgetBrl),
       itinerary: (r.itinerary as Itinerary | null) ?? null, itineraryRevision: r.itineraryRevision,

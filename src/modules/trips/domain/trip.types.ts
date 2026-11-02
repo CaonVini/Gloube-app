@@ -15,6 +15,17 @@ export type Need = (typeof NEEDS)[number];
 
 export const MAX_DESTINATIONS = 10;
 
+/** Os dois modelos do Planeje: já sabe o destino (só avalia os cards) ou precisa de ajuda (preenche o questionário). */
+export const PLAN_MODES = ['destino_definido', 'com_ajuda'] as const;
+export type PlanMode = (typeof PLAN_MODES)[number];
+
+/**
+ * Cards mostrados por destino no modo "destino definido" (~8 segundo o Caon; pode variar com os dias de viagem).
+ * Todos precisam ser avaliados (curtir ou não curtir). O servidor não sabe quais cards o app mostrou,
+ * então exige ao menos esta quantidade de avaliações por destino. Para mudar a regra, mude só este número.
+ */
+export const MIN_RATED_CARDS_PER_DESTINATION = 8;
+
 /** Datas sempre em ISO `YYYY-MM-DD` (o app mostra DD/MM/AAAA, mas a API não depende de máscara). */
 export type Period =
   | { mode: 'indefinido' }
