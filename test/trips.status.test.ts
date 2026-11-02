@@ -76,3 +76,11 @@ describe('arquivar e listar', () => {
     expect((await call(a, 'GET', '/trips')).json().items).toHaveLength(1);
   });
 });
+
+describe('estatísticas do perfil', () => {
+  it('exige login e começa zerada', async () => {
+    expect((await call(null, 'GET', '/users/me/stats')).statusCode).toBe(401);
+    const a = await newUser();
+    expect((await call(a, 'GET', '/users/me/stats')).json()).toEqual({ trips: 0, countries: 0, places: 0 });
+  });
+});

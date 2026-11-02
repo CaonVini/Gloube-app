@@ -22,6 +22,13 @@
       "when": 1793585859190,
       "tag": "0002_true_demogoblin",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793587014005,
+      "tag": "0003_trips_db_layer",
+      "breakpoints": true
     }
   ]
 }

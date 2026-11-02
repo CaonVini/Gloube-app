@@ -5,6 +5,7 @@ import type { ListTripsUseCase } from '../application/use-cases/list-trips.use-c
 import type { UpdateTripUseCase } from '../application/use-cases/update-trip.use-case.js';
 import type { ChangeTripStatusUseCase } from '../application/use-cases/change-trip-status.use-case.js';
 import type { SetTripArchivedUseCase } from '../application/use-cases/set-trip-archived.use-case.js';
+import type { GetUserTripStatsUseCase } from '../application/use-cases/get-user-trip-stats.use-case.js';
 import type { GenerateItineraryUseCase, ReplaceItineraryUseCase } from '../application/use-cases/itinerary.use-cases.js';
 import {
   changeStatusBodySchema, createTripBodySchema, generateItineraryBodySchema, listTripsQuerySchema,
@@ -22,7 +23,10 @@ export class TripController {
     private readonly setArchived: SetTripArchivedUseCase,
     private readonly generateItinerary: GenerateItineraryUseCase,
     private readonly replaceItinerary: ReplaceItineraryUseCase,
+    private readonly getStats: GetUserTripStatsUseCase,
   ) {}
+
+  stats = async (req: FastifyRequest, reply: FastifyReply) => reply.send(await this.getStats.execute(req.userId));
 
   create = async (req: FastifyRequest, reply: FastifyReply) =>
     reply.status(201).send(await this.createTrip.execute(req.userId, createTripBodySchema.parse(req.body ?? {})));

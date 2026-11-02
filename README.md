@@ -67,6 +67,7 @@ src/
 | GET | /users/me | Perfil (Bearer JWT) |
 | PATCH | /users/me | Atualiza nome, telefone e endereço (`null` limpa) |
 | POST | /trips | Cria viagem (sempre rascunho; campos podem faltar) |
+| GET | /users/me/stats | Números do perfil: viagens realizadas, países e lugares visitados (viagens concluídas) |
 | GET | /trips | Lista suas viagens (cursor, `status`, `archived`) |
 | GET | /trips/:id | Detalhe com roteiro |
 | PATCH | /trips/:id | Edita campos (`null` limpa) |
@@ -98,6 +99,15 @@ avança sozinho (começou -> em andamento; passou -> concluída). **Arquivar** n
 dividem os dias na ordem. Se já existe roteiro, exige `replace: true`.
 ### Roteiro: edição
 `PUT /trips/:id/itinerary` recebe o roteiro inteiro (adicionar, remover, reordenar e editar dias e itens). `revision` precisa ser a atual, senão 409.
+
+## Banco de dados (migration 0003)
+O banco é a última barreira: as regras críticas valem mesmo se a aplicação tiver um bug ou alguém rodar SQL à mão.
+- **Constraints:** valores iguais aos do app (clima, alcance, companhia, experiências, cuidados), máx. 10 destinos, roteiro até 1 MB, período coerente por modo.
+- **Trigger `trips_guard`:** `id`, `user_id` e `created_at` imutáveis (ninguém "transfere" viagem), fluxo de status obrigatório e viagem concluída/cancelada só aceita arquivar.
+- **Trigger + tabela `trip_status_history`:** auditoria append-only de cada mudança de status (de, para, quando).
+- **Function `trips_sync_statuses(user, hoje)`:** avanço automático por data em uma única ida ao banco.
+- **View `trip_summaries`:** listagem sem o `jsonb` do roteiro (leve). **View `user_trip_stats`:** números do perfil calculados no banco.
+- As constraints, triggers e views vivem só no SQL da migration; o schema Drizzle apenas descreve as views (`.existing()`).
 
 ## Análise crítica
 ### Segurança (aplicado)
