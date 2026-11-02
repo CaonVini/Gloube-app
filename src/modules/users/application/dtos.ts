@@ -7,6 +7,8 @@ export interface UserDTO {
   email: string;
   phone: string | null;
   address: Address | null;
+  /** URL temporária (expira em minutos) da foto; nula sem foto. Baixe/cacheie por userId, não pela URL. */
+  avatarUrl: string | null;
   /** True quando falta telefone ou endereço (o app pode pedir para completar). */
   profileComplete: boolean;
   createdAt: string;
@@ -27,13 +29,14 @@ export interface AuthResultDTO {
 }
 
 /** Nunca expõe passwordHash: o mapeamento é explícito (allow-list). */
-export function toUserDTO(user: User): UserDTO {
+export function toUserDTO(user: User, avatarUrl: string | null = null): UserDTO {
   return {
     id: user.id,
     name: user.name,
     email: user.email,
     phone: user.phone,
     address: user.address,
+    avatarUrl,
     profileComplete: user.phone !== null && user.address !== null,
     createdAt: user.createdAt.toISOString(),
   };

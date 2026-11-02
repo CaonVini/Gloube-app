@@ -49,7 +49,7 @@ export async function buildApp(env: Env, db: Database, overrides: ContainerOverr
   });
 
   const container = buildContainer(env, db, overrides);
-  await app.register((instance) => userRoutes(instance, { ...container, authRateLimitMax: env.AUTH_RATE_LIMIT_MAX }), { prefix: '/v1' });
+  await app.register((instance) => userRoutes(instance, { ...container, authRateLimitMax: env.AUTH_RATE_LIMIT_MAX, uploadRateLimitMax: env.UPLOAD_RATE_LIMIT_MAX }), { prefix: '/v1' });
 
   return app;
 }

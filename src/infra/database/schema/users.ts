@@ -21,6 +21,8 @@ export const users = pgTable(
     // Telefone normalizado para E.164 (ex.: +5511999998888)
     phone: varchar('phone', { length: 20 }),
     address: jsonb('address').$type<AddressData>(),
+    // Chave do objeto no S3 (nunca URL): a URL assinada é gerada na hora da resposta
+    avatarKey: varchar('avatar_key', { length: 200 }),
     // Nulo para contas criadas só via Google/Facebook (sem senha)
     passwordHash: text('password_hash'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

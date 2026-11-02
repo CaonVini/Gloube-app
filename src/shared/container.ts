@@ -20,6 +20,13 @@ import { LoginWithSocialUseCase } from '../modules/users/application/use-cases/l
 import { UpdateProfileUseCase } from '../modules/users/application/use-cases/update-profile.use-case.js';
 import type { SocialProvider } from '../modules/users/domain/social-identity.js';
 import type { SocialTokenVerifier } from '../modules/users/application/ports/social-token-verifier.js';
+import { UserPresenter } from '../modules/users/application/user-presenter.js';
+import { SetAvatarUseCase } from '../modules/users/application/use-cases/set-avatar.use-case.js';
+import { RemoveAvatarUseCase } from '../modules/users/application/use-cases/remove-avatar.use-case.js';
+import { AvatarController } from '../modules/users/http/avatar.controller.js';
+import { S3AvatarStorage } from '../modules/users/infra/s3-avatar-storage.js';
+import { SharpImageProcessor } from '../modules/users/infra/sharp-image-processor.js';
+import type { AvatarStorage } from '../modules/users/application/ports/avatar-storage.js';
 import { makeAuthenticate } from './http/authenticate.js';
 
 /**
@@ -30,6 +37,8 @@ import { makeAuthenticate } from './http/authenticate.js';
 export interface ContainerOverrides {
   /** Permite trocar os verificadores sociais (testes não chamam Google/Facebook de verdade). */
   socialVerifiers?: Partial<Record<SocialProvider, SocialTokenVerifier>>;
+  /** Permite trocar o storage de fotos (testes não falam com S3). */
+  avatarStorage?: AvatarStorage;
 }
 
 export function buildContainer(env: Env, db: Database, overrides: ContainerOverrides = {}) {
@@ -53,6 +62,22 @@ export function buildContainer(env: Env, db: Database, overrides: ContainerOverr
     ...overrides.socialVerifiers,
   };
 
+  const avatarStorage: AvatarStorage | null =
+    overrides.avatarStorage ??
+    (env.S3_BUCKET
+      ? new S3AvatarStorage({
+          bucket: env.S3_BUCKET,
+          region: env.S3_REGION,
+          endpoint: env.S3_ENDPOINT,
+          accessKeyId: env.S3_ACCESS_KEY_ID,
+          secretAccessKey: env.S3_SECRET_ACCESS_KEY,
+          forcePathStyle: env.S3_FORCE_PATH_STYLE,
+          urlTtlSeconds: env.AVATAR_URL_TTL_SECONDS,
+        })
+      : null);
+  const imageProcessor = new SharpImageProcessor();
+  const userPresenter = new UserPresenter(avatarStorage);
+
   // Application
   const issueSession = new IssueSessionService(
     accessTokenService,
@@ -61,24 +86,28 @@ export function buildContainer(env: Env, db: Database, overrides: ContainerOverr
     env.REFRESH_TOKEN_TTL_DAYS,
   );
   const registerUser = new RegisterUserUseCase(userRepository, passwordHasher, issueSession);
-  const authenticateUser = new AuthenticateUserUseCase(userRepository, passwordHasher, issueSession);
+  const authenticateUser = new AuthenticateUserUseCase(userRepository, passwordHasher, issueSession, userPresenter);
   const refreshSession = new RefreshSessionUseCase(refreshTokenRepository, opaqueTokenService, issueSession);
   const logout = new LogoutUseCase(refreshTokenRepository, opaqueTokenService);
-  const getUserProfile = new GetUserProfileUseCase(userRepository);
-  const updateProfile = new UpdateProfileUseCase(userRepository);
+  const getUserProfile = new GetUserProfileUseCase(userRepository, userPresenter);
+  const updateProfile = new UpdateProfileUseCase(userRepository, userPresenter);
   const loginWithSocial = new LoginWithSocialUseCase(
     socialVerifiers,
     userRepository,
     socialIdentityRepository,
     refreshTokenRepository,
     issueSession,
+    userPresenter,
   );
+  const setAvatar = avatarStorage ? new SetAvatarUseCase(userRepository, avatarStorage, imageProcessor, userPresenter) : null;
+  const removeAvatar = avatarStorage ? new RemoveAvatarUseCase(userRepository, avatarStorage, userPresenter) : null;
 
   // HTTP
   return {
     authenticate: makeAuthenticate(accessTokenService),
     authController: new AuthController(registerUser, authenticateUser, refreshSession, logout, loginWithSocial),
     userController: new UserController(getUserProfile, updateProfile),
+    avatarController: new AvatarController(setAvatar, removeAvatar),
   };
 }
 

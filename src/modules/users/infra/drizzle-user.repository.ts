@@ -27,6 +27,7 @@ export class DrizzleUserRepository implements UserRepository {
         email: user.email,
         phone: user.phone,
         address: user.address,
+        avatarKey: user.avatarKey,
         passwordHash: user.passwordHash,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
@@ -44,6 +45,7 @@ export class DrizzleUserRepository implements UserRepository {
         name: user.name,
         phone: user.phone,
         address: user.address,
+        avatarKey: user.avatarKey,
         passwordHash: user.passwordHash,
         updatedAt: user.updatedAt,
       })

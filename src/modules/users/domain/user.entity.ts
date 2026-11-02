@@ -7,6 +7,8 @@ export interface UserProps {
   email: string;
   phone: string | null;
   address: Address | null;
+  /** Chave do objeto no storage (S3); nulo = sem foto. */
+  avatarKey: string | null;
   /** Nulo para contas criadas apenas por login social. */
   passwordHash: string | null;
   createdAt: Date;
@@ -43,6 +45,7 @@ export class User {
       email: User.normalizeEmail(input.email),
       phone: input.phone ? User.normalizePhone(input.phone) : null,
       address: input.address ?? null,
+      avatarKey: null,
       passwordHash: input.passwordHash,
       createdAt: now,
       updatedAt: now,
@@ -70,6 +73,10 @@ export class User {
     });
   }
 
+  withAvatarKey(avatarKey: string | null): User {
+    return new User({ ...this.props, avatarKey, updatedAt: new Date() });
+  }
+
   /** Remove a senha (usado ao vincular conta social a uma conta de e-mail não verificado). */
   withoutPassword(): User {
     return new User({ ...this.props, passwordHash: null, updatedAt: new Date() });
@@ -80,6 +87,7 @@ export class User {
   get email() { return this.props.email; }
   get phone() { return this.props.phone; }
   get address() { return this.props.address; }
+  get avatarKey() { return this.props.avatarKey; }
   get passwordHash() { return this.props.passwordHash; }
   get createdAt() { return this.props.createdAt; }
   get updatedAt() { return this.props.updatedAt; }

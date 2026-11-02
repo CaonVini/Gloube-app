@@ -1,16 +1,20 @@
 import type { FastifyInstance, preHandlerHookHandler } from 'fastify';
 import type { AuthController } from './auth.controller.js';
+import multipart from '@fastify/multipart';
 import type { UserController } from './user.controller.js';
+import type { AvatarController } from './avatar.controller.js';
 
 export interface UserRoutesDeps {
   authController: AuthController;
   userController: UserController;
+  avatarController: AvatarController;
   authenticate: preHandlerHookHandler;
   authRateLimitMax: number;
+  uploadRateLimitMax: number;
 }
 
 export async function userRoutes(app: FastifyInstance, deps: UserRoutesDeps) {
-  const { authController, userController, authenticate, authRateLimitMax } = deps;
+  const { authController, userController, avatarController, authenticate, authRateLimitMax, uploadRateLimitMax } = deps;
 
   // Limite mais agressivo nas rotas de credenciais (força bruta / credential stuffing)
   const strictRateLimit = { rateLimit: { max: authRateLimitMax, timeWindow: '1 minute' } };
@@ -23,4 +27,12 @@ export async function userRoutes(app: FastifyInstance, deps: UserRoutesDeps) {
 
   app.get('/users/me', { preHandler: authenticate }, userController.me);
   app.patch('/users/me', { preHandler: authenticate }, userController.updateMe);
+
+  // Upload em contexto próprio: o parser multipart só existe nesta rota e a autenticação roda ANTES de ler o corpo
+  await app.register(async (scope) => {
+    await scope.register(multipart, { limits: { fileSize: 5 * 1024 * 1024, files: 1, fields: 0 } });
+    const uploadLimit = { rateLimit: { max: uploadRateLimitMax, timeWindow: '1 minute' } };
+    scope.put('/users/me/avatar', { preHandler: authenticate, config: uploadLimit }, avatarController.put);
+    scope.delete('/users/me/avatar', { preHandler: authenticate, config: uploadLimit }, avatarController.remove);
+  });
 }

@@ -5,7 +5,8 @@ import type { RefreshTokenRepository } from '../../domain/refresh-token.reposito
 import { newSocialIdentity, type SocialProvider } from '../../domain/social-identity.js';
 import type { SocialIdentityRepository } from '../../domain/social-identity.repository.js';
 import type { SocialProfile, SocialTokenVerifier } from '../ports/social-token-verifier.js';
-import { toUserDTO, type AuthResultDTO } from '../dtos.js';
+import type { AuthResultDTO } from '../dtos.js';
+import type { UserPresenter } from '../user-presenter.js';
 import type { IssueSessionService } from './issue-session.service.js';
 import { UnauthorizedError } from '../../../../shared/errors/app-error.js';
 
@@ -28,6 +29,7 @@ export class LoginWithSocialUseCase {
     private readonly identities: SocialIdentityRepository,
     private readonly refreshTokens: RefreshTokenRepository,
     private readonly issueSession: IssueSessionService,
+    private readonly presenter: UserPresenter,
   ) {}
 
   async execute(input: LoginWithSocialInput): Promise<AuthResultDTO> {
@@ -39,7 +41,7 @@ export class LoginWithSocialUseCase {
     const outcome = await this.resolveWithRetry(profile);
 
     const tokens = await this.issueSession.execute(outcome.user.id);
-    return { user: toUserDTO(outcome.user), tokens, isNewUser: outcome.isNewUser };
+    return { user: await this.presenter.present(outcome.user), tokens, isNewUser: outcome.isNewUser };
   }
 
   /**

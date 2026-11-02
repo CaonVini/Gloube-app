@@ -24,8 +24,22 @@ export const addressSchema = z.object({
   country: z.string().trim().length(2).toUpperCase().default('BR'),
 });
 
+// Mesma regra do app: 2 a 60 letras (qualquer idioma), espaço, hífen, apóstrofo e ponto; sem invisíveis/dígitos.
+export const nameSchema = z
+  .string()
+  .max(200)
+  // eslint-disable-next-line no-control-regex
+  .transform((v) => v.replace(/[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g, ' ').replace(/\s+/g, ' ').trim())
+  .pipe(
+    z
+      .string()
+      .min(2, 'Digite pelo menos 2 letras')
+      .max(60, 'Use no máximo 60 caracteres')
+      .regex(/^[\p{L}\p{M}][\p{L}\p{M} '.\-’]*$/u, 'Use apenas letras, espaços, hífen e apóstrofo'),
+  );
+
 export const registerBodySchema = z.object({
-  name: z.string().trim().min(2).max(120),
+  name: nameSchema,
   email: z.email().max(254),
   password: z
     .string()
@@ -37,7 +51,7 @@ export const registerBodySchema = z.object({
 
 export const updateProfileBodySchema = z
   .object({
-    name: z.string().trim().min(2).max(120).optional(),
+    name: nameSchema.optional(),
     phone: phoneSchema.nullable().optional(),
     address: addressSchema.nullable().optional(),
   })
