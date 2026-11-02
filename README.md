@@ -109,6 +109,11 @@ O banco é a última barreira: as regras críticas valem mesmo se a aplicação 
 - **View `trip_summaries`:** listagem sem o `jsonb` do roteiro (leve). **View `user_trip_stats`:** números do perfil calculados no banco.
 - As constraints, triggers e views vivem só no SQL da migration; o schema Drizzle apenas descreve as views (`.existing()`).
 
+## Documentação da API (Swagger / OpenAPI)
+Interface em `http://localhost:3333/docs` e JSON em `/docs/json` (importe no Postman/Insomnia). Os corpos documentados são gerados dos **mesmos schemas zod**
+que validam as requisições, e um teste garante que a documentação cobre exatamente as rotas existentes (rota nova sem documentação quebra o CI).
+Em produção ela fica desligada; `DOCS_ENABLED=true` liga. Ao adicionar rota: registre no `preHandler: authenticate` (ou na lista pública) e em `src/docs/openapi.ts`.
+
 ## Análise crítica
 ### Segurança (aplicado)
 - Senhas com **Argon2id** (parâmetros OWASP), com verify "falso" quando o e-mail não existe (reduz enumeração por timing); mensagem única "Credenciais inválidas".

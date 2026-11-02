@@ -34,6 +34,9 @@ const envSchema = z.object({
   FACEBOOK_APP_ID: z.string().optional(),
   FACEBOOK_APP_SECRET: z.string().optional(),
 
+  // Documentação Swagger em /docs. Padrão: ligada fora de produção, desligada em produção.
+  DOCS_ENABLED: z.enum(['true', 'false', '1', '0']).optional().transform((v) => (v === undefined ? undefined : v === 'true' || v === '1')),
+
   CORS_ORIGINS: z
     .string()
     .default('')
