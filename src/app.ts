@@ -10,6 +10,7 @@ import { registerDocs } from './docs/register-docs.js';
 import { installRouteGuard } from './shared/http/route-guard.js';
 import { errorHandler } from './shared/http/error-handler.js';
 import { tripRoutes } from './modules/trips/http/trip.routes.js';
+import { aiRoutes } from './modules/ai/http/ai.routes.js';
 import { userRoutes } from './modules/users/http/user.routes.js';
 
 export async function buildApp(env: Env, db: Database, overrides: ContainerOverrides = {}): Promise<FastifyInstance> {
@@ -65,6 +66,14 @@ export async function buildApp(env: Env, db: Database, overrides: ContainerOverr
   await app.register((instance) => userRoutes(instance, { ...container, authRateLimitMax: env.AUTH_RATE_LIMIT_MAX }), { prefix: '/v1' });
 
   await app.register((instance) => tripRoutes(instance, container), { prefix: '/v1' });
+
+  await app.register((instance) => aiRoutes(instance, { ...container, aiRateLimitMax: env.AI_RATE_LIMIT_MAX }), { prefix: '/v1' });
+
+  // O worker roda no mesmo processo da API (SKIP LOCKED permite subir vários); nos testes é acionado à mão via runOnce()
+  if (container.generationWorker && env.AI_WORKER_ENABLED && env.NODE_ENV !== 'test') {
+    container.generationWorker.start();
+    app.addHook('onClose', async () => container.generationWorker?.stop());
+  }
 
   return app;
 }

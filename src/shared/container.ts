@@ -30,6 +30,14 @@ import { SetTripArchivedUseCase } from '../modules/trips/application/use-cases/s
 import { GenerateItineraryUseCase, ReplaceItineraryUseCase } from '../modules/trips/application/use-cases/itinerary.use-cases.js';
 import { GetUserTripStatsUseCase } from '../modules/trips/application/use-cases/get-user-trip-stats.use-case.js';
 import { TripController } from '../modules/trips/http/trip.controller.js';
+import { DrizzleGenerationRepository } from '../modules/ai/infra/drizzle-generation.repository.js';
+import { OpenAiProvider } from '../modules/ai/infra/openai-provider.js';
+import { GenerationWorker } from '../modules/ai/application/generation-worker.js';
+import { getPrompt } from '../modules/ai/application/prompts/index.js';
+import type { AiProvider } from '../modules/ai/application/ports/ai-provider.js';
+import { EnqueueGenerationUseCase } from '../modules/ai/application/use-cases/enqueue-generation.use-case.js';
+import { GetAiUsageUseCase, GetGenerationUseCase, ListTripGenerationsUseCase } from '../modules/ai/application/use-cases/query-generations.use-cases.js';
+import { AiController } from '../modules/ai/http/ai.controller.js';
 import { makeAuthenticate } from './http/authenticate.js';
 
 /**
@@ -40,6 +48,8 @@ import { makeAuthenticate } from './http/authenticate.js';
 export interface ContainerOverrides {
   /** Permite trocar os verificadores sociais (testes não chamam Google/Facebook de verdade). */
   socialVerifiers?: Partial<Record<SocialProvider, SocialTokenVerifier>>;
+  /** Troca o provedor de IA (testes usam um falso: nunca chamam a OpenAI de verdade). */
+  aiProvider?: AiProvider;
 }
 
 export function buildContainer(env: Env, db: Database, overrides: ContainerOverrides = {}) {
@@ -86,8 +96,34 @@ export function buildContainer(env: Env, db: Database, overrides: ContainerOverr
 
   const tripRepository = new DrizzleTripRepository(db);
 
+  // IA: só fica ativa com chave + modelo + versão de prompt existente
+  const prompt = getPrompt(env.AI_PROMPT_VERSION);
+  const aiProvider = overrides.aiProvider ?? (env.OPENAI_API_KEY
+    ? new OpenAiProvider({ apiKey: env.OPENAI_API_KEY, baseUrl: env.OPENAI_BASE_URL, timeoutMs: env.AI_REQUEST_TIMEOUT_MS })
+    : null);
+  const aiModel = env.OPENAI_MODEL && aiProvider && prompt ? env.OPENAI_MODEL : null;
+  const generationRepository = new DrizzleGenerationRepository(db);
+  const generationWorker = aiModel && aiProvider && prompt
+    ? new GenerationWorker(generationRepository, tripRepository, aiProvider, prompt, {
+        maxAttempts: env.AI_MAX_ATTEMPTS,
+        maxOutputTokens: env.AI_MAX_OUTPUT_TOKENS,
+        prices: { inputPer1M: env.AI_PRICE_INPUT_PER_1M_USD, outputPer1M: env.AI_PRICE_OUTPUT_PER_1M_USD },
+        pollMs: env.AI_WORKER_POLL_MS,
+        staleMs: env.AI_REQUEST_TIMEOUT_MS * env.AI_MAX_ATTEMPTS + 60_000,
+      })
+    : null;
+
   // HTTP
   return {
+    generationWorker,
+    aiController: new AiController(
+      new EnqueueGenerationUseCase(tripRepository, generationRepository, {
+        model: aiModel, promptVersion: env.AI_PROMPT_VERSION, dailyLimitPerUser: env.AI_DAILY_LIMIT_PER_USER,
+      }),
+      new GetGenerationUseCase(generationRepository),
+      new ListTripGenerationsUseCase(tripRepository, generationRepository),
+      new GetAiUsageUseCase(generationRepository, env.AI_DAILY_LIMIT_PER_USER),
+    ),
     authenticate: makeAuthenticate(accessTokenService),
     authController: new AuthController(registerUser, authenticateUser, refreshSession, logout, loginWithSocial),
     userController: new UserController(getUserProfile, updateProfile),
