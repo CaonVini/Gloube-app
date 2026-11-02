@@ -7,6 +7,7 @@ import type { Env } from './config/env.js';
 import type { Database } from './infra/database/client.js';
 import { buildContainer, type ContainerOverrides } from './shared/container.js';
 import { registerDocs } from './docs/register-docs.js';
+import { withUserRateLimit } from './shared/http/user-rate-limit.js';
 import { installRouteGuard } from './shared/http/route-guard.js';
 import { errorHandler } from './shared/http/error-handler.js';
 import { tripRoutes } from './modules/trips/http/trip.routes.js';
@@ -38,7 +39,14 @@ export async function buildApp(env: Env, db: Database, overrides: ContainerOverr
     timeWindow: env.RATE_LIMIT_WINDOW,
   });
 
-  const container = buildContainer(env, db, overrides);
+  const built = buildContainer(env, db, overrides);
+  // Login + limite por usuário num único preHandler: toda rota autenticada passa pelos dois
+  const userLimiter = app.createRateLimit({
+    max: env.USER_RATE_LIMIT_MAX,
+    timeWindow: env.RATE_LIMIT_WINDOW,
+    keyGenerator: (req) => `user:${req.userId}`,
+  });
+  const container = { ...built, authenticate: withUserRateLimit(built.authenticate, userLimiter) };
   // Docs entram antes do guard: são rotas públicas por natureza (e só existem fora de produção, salvo DOCS_ENABLED)
   if (env.DOCS_ENABLED ?? env.NODE_ENV !== 'production') await registerDocs(app);
   // Fail-closed: toda rota precisa de login ou estar na lista pública (senão a API nem sobe)

@@ -102,7 +102,7 @@ const responses: Record<string, Json> = {
   Unauthorized: errorResponse('Token ausente, inválido ou expirado (`UNAUTHORIZED`)'),
   NotFound: errorResponse('Não existe **ou pertence a outro usuário** (`NOT_FOUND`); a API nunca revela a existência de dados alheios'),
   Conflict: errorResponse('Conflito de estado (`CONFLICT`): transição inválida, viagem encerrada ou edição concorrente'),
-  TooMany: errorResponse('Limite de requisições excedido (429)'),
+  TooMany: errorResponse('Limite de requisições excedido (429, `RATE_LIMITED`): há limite por IP e por usuário; veja o header `Retry-After`'),
   Unavailable: errorResponse('Serviço indisponível ou não configurado (`UNAVAILABLE`)'),
 };
 const errRef = (name: keyof typeof responses): Json => ({ $ref: `#/components/responses/${name}` });
