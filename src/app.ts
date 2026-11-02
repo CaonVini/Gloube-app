@@ -6,6 +6,7 @@ import { sql } from 'drizzle-orm';
 import type { Env } from './config/env.js';
 import type { Database } from './infra/database/client.js';
 import { buildContainer, type ContainerOverrides } from './shared/container.js';
+import { registerDocs } from './docs/register-docs.js';
 import { installRouteGuard } from './shared/http/route-guard.js';
 import { errorHandler } from './shared/http/error-handler.js';
 import { tripRoutes } from './modules/trips/http/trip.routes.js';
@@ -37,6 +38,8 @@ export async function buildApp(env: Env, db: Database, overrides: ContainerOverr
   });
 
   const container = buildContainer(env, db, overrides);
+  // Docs entram antes do guard: são rotas públicas por natureza (e só existem fora de produção, salvo DOCS_ENABLED)
+  if (env.DOCS_ENABLED ?? env.NODE_ENV !== 'production') await registerDocs(app);
   // Fail-closed: toda rota precisa de login ou estar na lista pública (senão a API nem sobe)
   installRouteGuard(app, container.authenticate);
 
