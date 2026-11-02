@@ -20,6 +20,12 @@ import { LoginWithSocialUseCase } from '../modules/users/application/use-cases/l
 import { UpdateProfileUseCase } from '../modules/users/application/use-cases/update-profile.use-case.js';
 import type { SocialProvider } from '../modules/users/domain/social-identity.js';
 import type { SocialTokenVerifier } from '../modules/users/application/ports/social-token-verifier.js';
+import { DrizzleTripRepository } from '../modules/trips/infra/drizzle-trip.repository.js';
+import { CreateTripUseCase } from '../modules/trips/application/use-cases/create-trip.use-case.js';
+import { GetTripUseCase } from '../modules/trips/application/use-cases/get-trip.use-case.js';
+import { ListTripsUseCase } from '../modules/trips/application/use-cases/list-trips.use-case.js';
+import { UpdateTripUseCase } from '../modules/trips/application/use-cases/update-trip.use-case.js';
+import { TripController } from '../modules/trips/http/trip.controller.js';
 import { makeAuthenticate } from './http/authenticate.js';
 
 /**
@@ -74,11 +80,19 @@ export function buildContainer(env: Env, db: Database, overrides: ContainerOverr
     issueSession,
   );
 
+  const tripRepository = new DrizzleTripRepository(db);
+
   // HTTP
   return {
     authenticate: makeAuthenticate(accessTokenService),
     authController: new AuthController(registerUser, authenticateUser, refreshSession, logout, loginWithSocial),
     userController: new UserController(getUserProfile, updateProfile),
+    tripController: new TripController(
+      new CreateTripUseCase(tripRepository),
+      new GetTripUseCase(tripRepository),
+      new ListTripsUseCase(tripRepository),
+      new UpdateTripUseCase(tripRepository),
+    ),
   };
 }
 

@@ -66,6 +66,10 @@ src/
 | POST | /auth/logout | Revoga refresh token (idempotente) |
 | GET | /users/me | Perfil (Bearer JWT) |
 | PATCH | /users/me | Atualiza nome, telefone e endereço (`null` limpa) |
+| POST | /trips | Cria viagem (sempre rascunho; campos podem faltar) |
+| GET | /trips | Lista suas viagens (cursor, `status`, `archived`) |
+| GET | /trips/:id | Detalhe com roteiro |
+| PATCH | /trips/:id | Edita campos (`null` limpa) |
 | GET | /health | Liveness + checagem do banco |
 
 Erros: `{ "error": { "code", "message", "details?" } }`.
@@ -77,7 +81,10 @@ Uma linha em `trips` por viagem (dono = `user_id`, toda consulta filtra por ele)
 - **Período** (3 modos): `indefinido`, `mes` (`month`,`year`) ou `definidas` (`startDate`, `endDate?` em `AAAA-MM-DD`). Nada antes de **hoje** (fuso de Brasília); a volta é depois da ida; com ida e volta, `days` vem do intervalo.
 - **Sem limite** de duração. **Orçamento**: reais por pessoa, `>= 0`, `null` = sem limite definido. Máximo de **10 destinos**.
 - Moeda única: BRL.
-Nesta etapa só existem modelo, regras e persistência; as rotas chegam nas próximas PRs.
+### Criar, listar, ver e editar
+`POST /trips` cria sempre **rascunho** (pode estar incompleto, mas o que vier é validado). `PATCH` altera só o que foi enviado; `null` limpa.
+Listagem paginada por cursor (`nextCursor`), do mais recente para o mais antigo, sem o roteiro.
+
 
 ## Análise crítica
 ### Segurança (aplicado)
