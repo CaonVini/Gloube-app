@@ -20,6 +20,10 @@ export interface GenerationInput {
     experiences: string[];
     needs: string[];
     likedPlaces: { ref: string; name: string; kind: string; destinationRef: string }[];
+    /** Cards que o usuário não curtiu: a IA deve evitar esses lugares. */
+    dislikedPlaces: { ref: string; name: string; kind: string; destinationRef: string }[];
+    planMode: string | null;
+    budgetUnlimited: boolean;
     period: unknown;
     budgetBrlPerPerson: number | null;
   };

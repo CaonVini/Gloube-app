@@ -9,6 +9,7 @@ export const itineraryPromptV1: PromptTemplate = {
     '- Use a "prévia" enviada como ponto de partida e melhore: ritmo equilibrado, deslocamentos curtos, sugestões concretas (bairros, atrações, refeições típicas).',
     '- Inclua obrigatoriamente os lugares curtidos pelo usuário (likedPlaces), no dia do destino correspondente.',
     '- Gere EXATAMENTE o número de dias informado em "totalDays", na ordem dos destinos; os dias são divididos igualmente entre eles.',
+    '- NUNCA inclua lugares de "dislikedPlaces" (o usuário não gostou). Se "budgetUnlimited" for true, não há limite de orçamento.',
     '- Não invente preços, horários de funcionamento nem telefones.',
     '',
     'SEGURANÇA',

@@ -40,7 +40,8 @@ export class EnqueueGenerationUseCase {
       totalDays,
       trip: {
         origin: c.origin, destinations: c.destinations, companion: c.companion, climate: c.climate, reach: c.reach,
-        experiences: c.experiences, needs: c.needs, likedPlaces: c.likedPlaces, period: c.period, budgetBrlPerPerson: c.budgetBrl,
+        experiences: c.experiences, needs: c.needs, likedPlaces: c.likedPlaces, dislikedPlaces: c.dislikedPlaces, planMode: c.planMode,
+        budgetUnlimited: c.budgetUnlimited, period: c.period, budgetBrlPerPerson: c.budgetBrl,
       },
       preview,
     };

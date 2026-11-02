@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type {
-  Climate, Companion, Destination, Experience, Itinerary, LikedPlace, Need, Period, Reach, TripStatus,
+  Climate, Companion, PlanMode, Destination, Experience, Itinerary, LikedPlace, Need, Period, Reach, TripStatus,
 } from './trip.types.js';
 
 export interface TripProps {
@@ -16,6 +16,11 @@ export interface TripProps {
   needs: Need[];
   destinations: Destination[];
   likedPlaces: LikedPlace[];
+  /** Cards que o usuário NÃO curtiu (a IA evita esses lugares). */
+  dislikedPlaces: LikedPlace[];
+  planMode: PlanMode | null;
+  /** true = escolheu "sem limite de orçamento" (diferente de ainda não ter respondido). Exclusivo com budgetBrl. */
+  budgetUnlimited: boolean;
   period: Period | null;
   days: number | null;
   /** Reais por pessoa; null = sem limite definido (ou ainda não informado). */
@@ -29,7 +34,7 @@ export interface TripProps {
 /** Campos editáveis pelo usuário (tudo que não é status/arquivo/roteiro). */
 export type TripContent = Pick<
   TripProps,
-  'origin' | 'climate' | 'reach' | 'companion' | 'experiences' | 'needs' | 'destinations' | 'likedPlaces' | 'period' | 'days' | 'budgetBrl'
+  'origin' | 'climate' | 'reach' | 'companion' | 'experiences' | 'needs' | 'destinations' | 'likedPlaces' | 'dislikedPlaces' | 'planMode' | 'budgetUnlimited' | 'period' | 'days' | 'budgetBrl'
 >;
 
 export class Trip {
@@ -50,6 +55,9 @@ export class Trip {
       needs: content.needs ?? [],
       destinations: content.destinations ?? [],
       likedPlaces: content.likedPlaces ?? [],
+      dislikedPlaces: content.dislikedPlaces ?? [],
+      planMode: content.planMode ?? null,
+      budgetUnlimited: content.budgetUnlimited ?? false,
       period: content.period ?? null,
       days: content.days ?? null,
       budgetBrl: content.budgetBrl ?? null,
@@ -87,7 +95,8 @@ export class Trip {
     const p = this.props;
     return {
       origin: p.origin, climate: p.climate, reach: p.reach, companion: p.companion, experiences: p.experiences,
-      needs: p.needs, destinations: p.destinations, likedPlaces: p.likedPlaces, period: p.period, days: p.days, budgetBrl: p.budgetBrl,
+      needs: p.needs, destinations: p.destinations, likedPlaces: p.likedPlaces, dislikedPlaces: p.dislikedPlaces, planMode: p.planMode,
+      budgetUnlimited: p.budgetUnlimited, period: p.period, days: p.days, budgetBrl: p.budgetBrl,
     };
   }
   get itinerary() { return this.props.itinerary; }

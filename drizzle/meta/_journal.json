@@ -43,6 +43,13 @@
       "when": 1793600100000,
       "tag": "0005_row_level_security",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793600200000,
+      "tag": "0006_plan_modes",
+      "breakpoints": true
     }
   ]
 }

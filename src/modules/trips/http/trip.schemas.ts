@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import {
-  CLIMATES, COMPANIONS, EXPERIENCES, MAX_DESTINATIONS, MAX_ITEMS_PER_DAY, MAX_ITINERARY_DAYS, NEEDS, PLACE_KINDS, REACHES, TRIP_STATUSES,
+  CLIMATES, COMPANIONS, EXPERIENCES, MAX_DESTINATIONS, MAX_ITEMS_PER_DAY, MAX_ITINERARY_DAYS, NEEDS, PLACE_KINDS, PLAN_MODES, REACHES, TRIP_STATUSES,
 } from '../domain/trip.types.js';
 
 const text = (max: number) => z.string().trim().min(1).max(max);
@@ -31,6 +31,10 @@ export const tripContentShape = {
   needs: uniqueArray(z.enum(NEEDS), NEEDS.length),
   destinations: z.array(destinationSchema).max(MAX_DESTINATIONS, `No máximo ${MAX_DESTINATIONS} destinos`),
   likedPlaces: z.array(likedPlaceSchema).max(MAX_DESTINATIONS * 50),
+  dislikedPlaces: z.array(likedPlaceSchema).max(MAX_DESTINATIONS * 50),
+  planMode: z.enum(PLAN_MODES).nullable(),
+  // true = "sem limite de orçamento" (resposta válida; só vale com budgetBrl nulo)
+  budgetUnlimited: z.boolean(),
   period: periodSchema.nullable(),
   // Sem limite de negócio; só inteiro positivo dentro do int4 do banco
   days: z.number().int().min(1).max(2_147_483_647).nullable(),
