@@ -67,6 +67,8 @@ const envSchema = z.object({
   RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(100),
   // Limite por minuto/IP das rotas de credenciais (login, cadastro, social)
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(10),
+  // Limite por minuto POR USUÁRIO autenticado (além do limite por IP)
+  USER_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(120),
   RATE_LIMIT_WINDOW: z.string().default('1 minute'),
 });
 

@@ -1,5 +1,6 @@
 import { and, desc, eq, inArray, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
 import type { Database } from '../../../infra/database/client.js';
+import { asUser, type Tx } from '../../../infra/database/scoped.js';
 import { trips, tripSummaries, userTripStats, type TripRow } from '../../../infra/database/schema/index.js';
 import { Trip, type TripProps } from '../domain/trip.entity.js';
 import type { ListTripsQuery, TripRepository, TripSummary, UserTripStats } from '../domain/trip.repository.js';
@@ -26,90 +27,113 @@ function toPeriod(r: Pick<TripRow, 'periodMode' | 'periodMonth' | 'periodYear' |
 export class DrizzleTripRepository implements TripRepository {
   constructor(private readonly db: Database) {}
 
+  /** Toda consulta roda numa transação "como o usuário": o Postgres (RLS) só enxerga as linhas dele. */
+  private run<T>(userId: string, fn: (db: Tx) => Promise<T>): Promise<T> {
+    return asUser(this.db, userId, fn);
+  }
+
   async create(trip: Trip): Promise<void> {
-    const p = trip.toProps();
-    await this.db.insert(trips).values({
-      id: p.id, userId: p.userId, status: p.status, archivedAt: p.archivedAt,
-      ...this.contentColumns(trip),
-      itinerary: p.itinerary, itineraryRevision: p.itineraryRevision,
-      createdAt: p.createdAt, updatedAt: p.updatedAt,
+    return this.run(trip.toProps().userId, async (db) => {
+      const p = trip.toProps();
+      await db.insert(trips).values({
+        id: p.id, userId: p.userId, status: p.status, archivedAt: p.archivedAt,
+        ...this.contentColumns(trip),
+        itinerary: p.itinerary, itineraryRevision: p.itineraryRevision,
+        createdAt: p.createdAt, updatedAt: p.updatedAt,
+      });
     });
   }
 
   async findById(id: string, userId: string): Promise<Trip | null> {
-    const [row] = await this.db.select().from(trips).where(and(eq(trips.id, id), eq(trips.userId, userId))).limit(1);
-    return row ? this.toDomain(row) : null;
+    return this.run(userId, async (db) => {
+      const [row] = await db.select().from(trips).where(and(eq(trips.id, id), eq(trips.userId, userId))).limit(1);
+      return row ? this.toDomain(row) : null;
+    });
   }
 
   async list(userId: string, q: ListTripsQuery): Promise<TripSummary[]> {
-    const t = tripSummaries;
-    const conds = [
-      eq(t.userId, userId),
-      q.archived ? isNotNull(t.archivedAt) : isNull(t.archivedAt),
-      ...(q.status ? [eq(t.status, q.status)] : []),
-      ...(q.cursor
-        ? [or(lt(t.updatedAt, q.cursor.updatedAt), and(eq(t.updatedAt, q.cursor.updatedAt), lt(t.id, q.cursor.id)))!]
-        : []),
-    ];
-    const rows = await this.db.select().from(t).where(and(...conds)).orderBy(desc(t.updatedAt), desc(t.id)).limit(q.limit);
-    return rows.map((r) => ({
-      id: r.id, status: r.status as TripStatus, archivedAt: r.archivedAt, origin: r.origin,
-      destinations: r.destinations as TripSummary['destinations'], companion: r.companion as TripSummary['companion'],
-      period: toPeriod(r), days: r.days, budgetBrl: r.budgetBrl === null ? null : Number(r.budgetBrl),
-      hasItinerary: r.hasItinerary, createdAt: r.createdAt, updatedAt: r.updatedAt,
-    }));
+    return this.run(userId, async (db) => {
+      const t = tripSummaries;
+      const conds = [
+        eq(t.userId, userId),
+        q.archived ? isNotNull(t.archivedAt) : isNull(t.archivedAt),
+        ...(q.status ? [eq(t.status, q.status)] : []),
+        ...(q.cursor
+          ? [or(lt(t.updatedAt, q.cursor.updatedAt), and(eq(t.updatedAt, q.cursor.updatedAt), lt(t.id, q.cursor.id)))!]
+          : []),
+      ];
+      const rows = await db.select().from(t).where(and(...conds)).orderBy(desc(t.updatedAt), desc(t.id)).limit(q.limit);
+      return rows.map((r) => ({
+        id: r.id, status: r.status as TripStatus, archivedAt: r.archivedAt, origin: r.origin,
+        destinations: r.destinations as TripSummary['destinations'], companion: r.companion as TripSummary['companion'],
+        period: toPeriod(r), days: r.days, budgetBrl: r.budgetBrl === null ? null : Number(r.budgetBrl),
+        hasItinerary: r.hasItinerary, createdAt: r.createdAt, updatedAt: r.updatedAt,
+      }));
+    });
   }
 
   async statsForUser(userId: string): Promise<UserTripStats> {
-    const [row] = await this.db.select().from(userTripStats).where(eq(userTripStats.userId, userId)).limit(1);
-    return { trips: row?.tripsCompleted ?? 0, countries: row?.countriesVisited ?? 0, places: row?.placesVisited ?? 0 };
+    return this.run(userId, async (db) => {
+      const [row] = await db.select().from(userTripStats).where(eq(userTripStats.userId, userId)).limit(1);
+      return { trips: row?.tripsCompleted ?? 0, countries: row?.countriesVisited ?? 0, places: row?.placesVisited ?? 0 };
+    });
   }
 
   async saveContent(trip: Trip, expectedStatus: TripStatus): Promise<boolean> {
-    const p = trip.toProps();
-    const res = await this.db
-      .update(trips)
-      .set({ ...this.contentColumns(trip), updatedAt: p.updatedAt })
-      .where(and(eq(trips.id, p.id), eq(trips.userId, p.userId), eq(trips.status, expectedStatus), inArray(trips.status, [...EDITABLE_STATUSES])))
-      .returning({ id: trips.id });
-    return res.length > 0;
+    return this.run(trip.toProps().userId, async (db) => {
+      const p = trip.toProps();
+      const res = await db
+        .update(trips)
+        .set({ ...this.contentColumns(trip), updatedAt: p.updatedAt })
+        .where(and(eq(trips.id, p.id), eq(trips.userId, p.userId), eq(trips.status, expectedStatus), inArray(trips.status, [...EDITABLE_STATUSES])))
+        .returning({ id: trips.id });
+      return res.length > 0;
+    });
   }
 
   async transition(id: string, userId: string, from: TripStatus, to: TripStatus): Promise<boolean> {
-    const res = await this.db
-      .update(trips)
-      .set({ status: to, updatedAt: new Date() })
-      .where(and(eq(trips.id, id), eq(trips.userId, userId), eq(trips.status, from)))
-      .returning({ id: trips.id });
-    return res.length > 0;
+    return this.run(userId, async (db) => {
+      const res = await db
+        .update(trips)
+        .set({ status: to, updatedAt: new Date() })
+        .where(and(eq(trips.id, id), eq(trips.userId, userId), eq(trips.status, from)))
+        .returning({ id: trips.id });
+      return res.length > 0;
+    });
   }
 
   async setArchived(id: string, userId: string, archived: boolean): Promise<boolean> {
-    const res = await this.db
-      .update(trips)
-      .set({ archivedAt: archived ? sql`coalesce(${trips.archivedAt}, now())` : null, updatedAt: new Date() })
-      .where(and(eq(trips.id, id), eq(trips.userId, userId)))
-      .returning({ id: trips.id });
-    return res.length > 0;
+    return this.run(userId, async (db) => {
+      const res = await db
+        .update(trips)
+        .set({ archivedAt: archived ? sql`coalesce(${trips.archivedAt}, now())` : null, updatedAt: new Date() })
+        .where(and(eq(trips.id, id), eq(trips.userId, userId)))
+        .returning({ id: trips.id });
+      return res.length > 0;
+    });
   }
 
   async saveItinerary(trip: Trip, expectedRevision: number): Promise<boolean> {
-    const p = trip.toProps();
-    const res = await this.db
-      .update(trips)
-      .set({ itinerary: p.itinerary, itineraryRevision: p.itineraryRevision, updatedAt: p.updatedAt })
-      .where(and(
-        eq(trips.id, p.id), eq(trips.userId, p.userId),
-        eq(trips.itineraryRevision, expectedRevision),
-        inArray(trips.status, [...EDITABLE_STATUSES]),
-      ))
-      .returning({ id: trips.id });
-    return res.length > 0;
+    return this.run(trip.toProps().userId, async (db) => {
+      const p = trip.toProps();
+      const res = await db
+        .update(trips)
+        .set({ itinerary: p.itinerary, itineraryRevision: p.itineraryRevision, updatedAt: p.updatedAt })
+        .where(and(
+          eq(trips.id, p.id), eq(trips.userId, p.userId),
+          eq(trips.itineraryRevision, expectedRevision),
+          inArray(trips.status, [...EDITABLE_STATUSES]),
+        ))
+        .returning({ id: trips.id });
+      return res.length > 0;
+    });
   }
 
   async syncStatusesByDate(userId: string, today: string): Promise<void> {
-    // Function no banco: as duas etapas (começou -> em andamento; passou -> concluída) em uma só ida
-    await this.db.execute(sql`select trips_sync_statuses(${userId}::uuid, ${today}::date)`);
+    return this.run(userId, async (db) => {
+      // Function no banco: as duas etapas (começou -> em andamento; passou -> concluída) em uma só ida
+      await db.execute(sql`select trips_sync_statuses(${userId}::uuid, ${today}::date)`);
+    });
   }
 
   private contentColumns(trip: Trip) {
