@@ -1,6 +1,7 @@
 import { ValidationError } from '../../../../shared/errors/app-error.js';
 import type { TripRepository } from '../../domain/trip.repository.js';
 import type { TripStatus } from '../../domain/trip.types.js';
+import { todayInBrazil } from '../../domain/trip-rules.js';
 import { toTripSummaryDTO, type TripSummaryDTO } from '../dtos.js';
 
 export interface ListTripsInput {
@@ -26,6 +27,7 @@ export class ListTripsUseCase {
 
   /** Paginação por cursor (keyset): custo constante por página, sem OFFSET. */
   async execute(userId: string, input: ListTripsInput): Promise<{ items: TripSummaryDTO[]; nextCursor: string | null }> {
+    await this.trips.syncStatusesByDate(userId, todayInBrazil());
     const rows = await this.trips.list(userId, {
       status: input.status,
       archived: input.archived,

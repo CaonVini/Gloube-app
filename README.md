@@ -70,6 +70,9 @@ src/
 | GET | /trips | Lista suas viagens (cursor, `status`, `archived`) |
 | GET | /trips/:id | Detalhe com roteiro |
 | PATCH | /trips/:id | Edita campos (`null` limpa) |
+| POST | /trips/:id/status | Muda status (planejada, em_andamento, concluida, cancelada) |
+| POST | /trips/:id/archive | Arquiva (não existe exclusão) |
+| DELETE | /trips/:id/archive | Desarquiva |
 | GET | /health | Liveness + checagem do banco |
 
 Erros: `{ "error": { "code", "message", "details?" } }`.
@@ -84,7 +87,10 @@ Uma linha em `trips` por viagem (dono = `user_id`, toda consulta filtra por ele)
 ### Criar, listar, ver e editar
 `POST /trips` cria sempre **rascunho** (pode estar incompleto, mas o que vier é validado). `PATCH` altera só o que foi enviado; `null` limpa.
 Listagem paginada por cursor (`nextCursor`), do mais recente para o mais antigo, sem o roteiro.
-
+### Status e arquivo
+`rascunho -> planejada -> em_andamento -> concluida`, e `cancelada` a partir de rascunho/planejada/em andamento. Para virar **planejada** são obrigatórios:
+origem, 1+ destino, companhia, período e duração (cuidados e orçamento são opcionais). `concluida`/`cancelada` não editam. Com datas exatas o status
+avança sozinho (começou -> em andamento; passou -> concluída). **Arquivar** não exclui: só esconde da lista padrão.
 
 ## Análise crítica
 ### Segurança (aplicado)
