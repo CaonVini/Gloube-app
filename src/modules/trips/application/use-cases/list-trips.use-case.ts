@@ -39,7 +39,7 @@ export class ListTripsUseCase {
     const hasMore = rows.length > input.limit && last;
     return {
       items: page.map(toTripSummaryDTO),
-      nextCursor: hasMore ? encodeCursor(last.toProps().updatedAt, last.id) : null,
+      nextCursor: hasMore ? encodeCursor(last.updatedAt, last.id) : null,
     };
   }
 }

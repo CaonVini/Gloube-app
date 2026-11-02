@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { check, date, index, integer, jsonb, numeric, pgTable, smallint, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
+import { boolean, check, date, pgView, index, integer, jsonb, numeric, pgTable, smallint, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
 import { users } from './users.js';
 
 /**
@@ -51,3 +51,34 @@ export const trips = pgTable(
 );
 
 export type TripRow = typeof trips.$inferSelect;
+
+/**
+ * Views criadas na migration 0003 (SQL à mão). `.existing()` só descreve as colunas para o Drizzle tipar as
+ * consultas; ele NÃO cria nem altera a view. As constraints e triggers da 0003 também vivem só no SQL.
+ */
+export const tripSummaries = pgView('trip_summaries', {
+  id: uuid('id').notNull(),
+  userId: uuid('user_id').notNull(),
+  status: varchar('status', { length: 20 }).notNull(),
+  archivedAt: timestamp('archived_at', { withTimezone: true }),
+  origin: varchar('origin', { length: 120 }),
+  companion: varchar('companion', { length: 20 }),
+  periodMode: varchar('period_mode', { length: 12 }),
+  periodMonth: smallint('period_month'),
+  periodYear: smallint('period_year'),
+  startDate: date('start_date', { mode: 'string' }),
+  endDate: date('end_date', { mode: 'string' }),
+  days: integer('days'),
+  budgetBrl: numeric('budget_brl', { precision: 12, scale: 2 }),
+  destinations: jsonb('destinations').notNull(),
+  hasItinerary: boolean('has_itinerary').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull(),
+}).existing();
+
+export const userTripStats = pgView('user_trip_stats', {
+  userId: uuid('user_id').notNull(),
+  tripsCompleted: integer('trips_completed').notNull(),
+  countriesVisited: integer('countries_visited').notNull(),
+  placesVisited: integer('places_visited').notNull(),
+}).existing();

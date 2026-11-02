@@ -1,5 +1,27 @@
 import type { Trip } from './trip.entity.js';
-import type { TripStatus } from './trip.types.js';
+import type { Destination, Companion, Period, TripStatus } from './trip.types.js';
+
+/** Linha leve da listagem (vem da view `trip_summaries`: sem roteiro nem lugares curtidos). */
+export interface TripSummary {
+  id: string;
+  status: TripStatus;
+  archivedAt: Date | null;
+  origin: string | null;
+  destinations: Destination[];
+  companion: Companion | null;
+  period: Period | null;
+  days: number | null;
+  budgetBrl: number | null;
+  hasItinerary: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface UserTripStats {
+  trips: number;
+  countries: number;
+  places: number;
+}
 
 export interface ListTripsQuery {
   status?: TripStatus;
@@ -16,7 +38,9 @@ export interface ListTripsQuery {
 export interface TripRepository {
   create(trip: Trip): Promise<void>;
   findById(id: string, userId: string): Promise<Trip | null>;
-  list(userId: string, query: ListTripsQuery): Promise<Trip[]>;
+  list(userId: string, query: ListTripsQuery): Promise<TripSummary[]>;
+  /** Números do perfil, calculados no banco (view `user_trip_stats`). */
+  statsForUser(userId: string): Promise<UserTripStats>;
   /** Grava só o conteúdo, se o status ainda for `expectedStatus`. false = mudou no meio (conflito). */
   saveContent(trip: Trip, expectedStatus: TripStatus): Promise<boolean>;
   /** Troca de status condicionada ao status anterior. */

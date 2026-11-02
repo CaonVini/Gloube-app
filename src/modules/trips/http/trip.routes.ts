@@ -7,6 +7,7 @@ export async function tripRoutes(app: FastifyInstance, deps: { tripController: T
   // Geração de roteiro é a operação mais cara: limite próprio por IP
   const heavy = { preHandler: authenticate, config: { rateLimit: { max: 20, timeWindow: '1 minute' } } };
 
+  app.get('/users/me/stats', auth, c.stats);
   app.post('/trips', auth, c.create);
   app.get('/trips', auth, c.list);
   app.get('/trips/:id', auth, c.get);

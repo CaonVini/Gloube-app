@@ -91,7 +91,8 @@ describe('DrizzleTripRepository', () => {
     const mk = async (userId: string, period: Parameters<typeof Trip.createDraft>[1]['period'], status: 'planejada' | 'em_andamento') => {
       const t = Trip.createDraft(userId, { period, days: 3 });
       await repo.create(t);
-      await repo.transition(t.id, userId, 'rascunho', status);
+      await repo.transition(t.id, userId, 'rascunho', 'planejada');
+      if (status === 'em_andamento') await repo.transition(t.id, userId, 'planejada', 'em_andamento');
       return t.id;
     };
     // as datas são gravadas direto: a API não aceita datas passadas, mas o tempo passa
@@ -120,7 +121,7 @@ describe('DrizzleTripRepository', () => {
     }
     await repo.setArchived(ids[0]!, who, true);
     const p1 = await repo.list(who, { archived: false, limit: 2 });
-    const last = p1.at(-1)!.toProps();
+    const last = p1.at(-1)!;
     const p2 = await repo.list(who, { archived: false, limit: 10, cursor: { updatedAt: last.updatedAt, id: last.id } });
     const seen = [...p1, ...p2].map((t) => t.id);
     expect(new Set(seen).size).toBe(4);

@@ -1,8 +1,8 @@
 import { and, desc, eq, inArray, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
 import type { Database } from '../../../infra/database/client.js';
-import { trips, type TripRow } from '../../../infra/database/schema/index.js';
+import { trips, tripSummaries, userTripStats, type TripRow } from '../../../infra/database/schema/index.js';
 import { Trip, type TripProps } from '../domain/trip.entity.js';
-import type { ListTripsQuery, TripRepository } from '../domain/trip.repository.js';
+import type { ListTripsQuery, TripRepository, TripSummary, UserTripStats } from '../domain/trip.repository.js';
 import { EDITABLE_STATUSES } from '../domain/trip-rules.js';
 import type { Itinerary, Period, TripStatus } from '../domain/trip.types.js';
 
@@ -16,7 +16,7 @@ function periodColumns(period: Period | null) {
   };
 }
 
-function toPeriod(r: TripRow): Period | null {
+function toPeriod(r: Pick<TripRow, 'periodMode' | 'periodMonth' | 'periodYear' | 'startDate' | 'endDate'>): Period | null {
   if (r.periodMode === 'indefinido') return { mode: 'indefinido' };
   if (r.periodMode === 'mes' && r.periodMonth && r.periodYear) return { mode: 'mes', month: r.periodMonth, year: r.periodYear };
   if (r.periodMode === 'definidas' && r.startDate) return { mode: 'definidas', startDate: r.startDate, endDate: r.endDate };
@@ -41,17 +41,28 @@ export class DrizzleTripRepository implements TripRepository {
     return row ? this.toDomain(row) : null;
   }
 
-  async list(userId: string, q: ListTripsQuery): Promise<Trip[]> {
+  async list(userId: string, q: ListTripsQuery): Promise<TripSummary[]> {
+    const t = tripSummaries;
     const conds = [
-      eq(trips.userId, userId),
-      q.archived ? isNotNull(trips.archivedAt) : isNull(trips.archivedAt),
-      ...(q.status ? [eq(trips.status, q.status)] : []),
+      eq(t.userId, userId),
+      q.archived ? isNotNull(t.archivedAt) : isNull(t.archivedAt),
+      ...(q.status ? [eq(t.status, q.status)] : []),
       ...(q.cursor
-        ? [or(lt(trips.updatedAt, q.cursor.updatedAt), and(eq(trips.updatedAt, q.cursor.updatedAt), lt(trips.id, q.cursor.id)))!]
+        ? [or(lt(t.updatedAt, q.cursor.updatedAt), and(eq(t.updatedAt, q.cursor.updatedAt), lt(t.id, q.cursor.id)))!]
         : []),
     ];
-    const rows = await this.db.select().from(trips).where(and(...conds)).orderBy(desc(trips.updatedAt), desc(trips.id)).limit(q.limit);
-    return rows.map((r) => this.toDomain(r));
+    const rows = await this.db.select().from(t).where(and(...conds)).orderBy(desc(t.updatedAt), desc(t.id)).limit(q.limit);
+    return rows.map((r) => ({
+      id: r.id, status: r.status as TripStatus, archivedAt: r.archivedAt, origin: r.origin,
+      destinations: r.destinations as TripSummary['destinations'], companion: r.companion as TripSummary['companion'],
+      period: toPeriod(r), days: r.days, budgetBrl: r.budgetBrl === null ? null : Number(r.budgetBrl),
+      hasItinerary: r.hasItinerary, createdAt: r.createdAt, updatedAt: r.updatedAt,
+    }));
+  }
+
+  async statsForUser(userId: string): Promise<UserTripStats> {
+    const [row] = await this.db.select().from(userTripStats).where(eq(userTripStats.userId, userId)).limit(1);
+    return { trips: row?.tripsCompleted ?? 0, countries: row?.countriesVisited ?? 0, places: row?.placesVisited ?? 0 };
   }
 
   async saveContent(trip: Trip, expectedStatus: TripStatus): Promise<boolean> {
@@ -97,12 +108,8 @@ export class DrizzleTripRepository implements TripRepository {
   }
 
   async syncStatusesByDate(userId: string, today: string): Promise<void> {
-    // Fim da viagem: volta, ou ida + dias (ou só a ida, sem duração). Só viagens com datas exatas mudam sozinhas.
-    const lastDay = sql`coalesce(${trips.endDate}, ${trips.startDate} + coalesce(${trips.days}, 0))`;
-    const started = and(eq(trips.userId, userId), eq(trips.status, 'planejada'), eq(trips.periodMode, 'definidas'), sql`${trips.startDate} <= ${today}::date`);
-    await this.db.update(trips).set({ status: 'em_andamento', updatedAt: new Date() }).where(started);
-    const finished = and(eq(trips.userId, userId), eq(trips.status, 'em_andamento'), eq(trips.periodMode, 'definidas'), sql`${lastDay} < ${today}::date`);
-    await this.db.update(trips).set({ status: 'concluida', updatedAt: new Date() }).where(finished);
+    // Function no banco: as duas etapas (começou -> em andamento; passou -> concluída) em uma só ida
+    await this.db.execute(sql`select trips_sync_statuses(${userId}::uuid, ${today}::date)`);
   }
 
   private contentColumns(trip: Trip) {
